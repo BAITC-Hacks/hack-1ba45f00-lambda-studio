@@ -23,6 +23,8 @@ def diff_shape(mock, real, path: str = "$", loose_null: bool = True) -> list[str
             return errs
         return [f"{path}: тип {kr}, в моке {km}"]
     if isinstance(mock, dict):
+        if path.endswith(".args"):          # tool_calls[].args — аргументы конкретного инструмента, форма свободная
+            return errs
         # словарь id → объект (cards) или N → объект (resilience): сверяем значения с первым значением мока
         dyn = mock and all(k.isdigit() for k in mock)
         if dyn:

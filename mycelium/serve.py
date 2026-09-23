@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
@@ -165,12 +164,8 @@ def create_app(out_dir: Path = config.OUT_DIR, data_dir: Path = config.DATA_DIR)
 
 
 def ai_enabled() -> bool:
-    try:
-        from dotenv import load_dotenv
-        load_dotenv(config.ROOT / ".env")
-    except ImportError:
-        pass
-    return bool(os.getenv("OPENAI_API_KEY")) and bool(os.getenv("OPENAI_MODEL"))
+    from mycelium.ai.analyst import enabled
+    return enabled()
 
 
 def _include_ai(app: FastAPI) -> None:
