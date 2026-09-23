@@ -1,4 +1,4 @@
-"""Точка входа: parquet → out/*.csv.
+"""Точка входа: parquet → out/*.csv + out/web/*.json + out/facts.json.
 
     python -m mycelium.pipeline [--data data] [--out out]
 
@@ -15,9 +15,9 @@ from pathlib import Path
 import pandas as pd
 
 from mycelium import clusters as clusters_mod
-from mycelium import config, explore, resilience, temporal
+from mycelium import config, explore, layout, next_requests, resilience, sankey, temporal
 from mycelium.evidence import add_evidence, fmt_kzt
-from mycelium.export import write_csvs
+from mycelium.export import write_csvs, write_extra_csvs, write_web
 from mycelium.features import add_cluster_features, add_temporal, node_features
 from mycelium.load import load_dataset
 from mycelium.priority import add_priority, add_rank, top_table
@@ -82,13 +82,37 @@ def run(data_dir: Path = config.DATA_DIR, out_dir: Path = config.OUT_DIR) -> pd.
     with step("Описание кластеров", timings):
         clusters = clusters_mod.describe_clusters(G, df)
 
-    with step("Запись CSV", timings):
-        paths = write_csvs(df, clusters, top, pd.Index(ds.nodes.gid), out_dir)
-        for p in paths.values():
-            print(f"  {p.relative_to(Path.cwd()) if p.is_relative_to(Path.cwd()) else p}")
+    with step("План блокировки и сравнение стратегий", timings):
+        plan = resilience.greedy_plan(G, df, n=20)
+        res = resilience.strategies(G, df, plan)
+        for name in ("plan", "turnover", "priority", "random"):
+            e = res["strategies"][name]["10"]
+            print(f"  N=10 {name:<9} поток −{e['drop_reach_pct']} %, до верхних колен −{e['drop_deep_pct']} %")
+
+    with step("Следующий запрос, лестница денег", timings):
+        requests = next_requests.build_requests(df)
+        sk = sankey.build_sankey(G, df)
+
+    with step("Раскладка схемы", timings):
+        xy = layout.compute_layout(G, df)
+        df["x"], df["y"] = xy.x, xy.y
+
+    with step("Запись CSV и JSON", timings):
+        paths, tables = write_csvs(df, clusters, top, pd.Index(ds.nodes.gid), out_dir)
+        paths.update(write_extra_csvs(requests, plan, out_dir))
+        web = write_web(df, G, summary, tables["clusters"], tables["top_nodes"], plan, res, requests, sk, out_dir)
+        for p in list(paths.values()) + web:
+            print(f"  {_rel(p)}")
 
     report(df, clusters, time.perf_counter() - t_all)
     return df
+
+
+def _rel(p: Path) -> str:
+    try:
+        return str(p.resolve().relative_to(Path.cwd().resolve()))
+    except ValueError:
+        return str(p)
 
 
 def report(df: pd.DataFrame, clusters: pd.DataFrame, total: float) -> None:
