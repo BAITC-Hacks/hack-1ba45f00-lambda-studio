@@ -1,7 +1,12 @@
 .venv
 .git
 **/__pycache__
+**/.pytest_cache
+.mypy_cache
+.ruff_cache
 frontend/node_modules
 frontend/.next
 frontend/out
 .env
+.DS_Store
+README_new.md
