@@ -19,7 +19,7 @@ from mycelium import config
 
 SCALE = 1000.0
 ITERATIONS = 80
-LAYOUT = "layered"          # "layered" — сверху вниз по коленам; "force" — силовая
+LAYOUT = "force"           # "force" — силовая (по умолчанию); "layered" — сверху вниз по коленам
 ROW_BANDS = 4               # узлы плотного ряда раскладываются по 4 подстрокам, чтобы не слипались
 
 
