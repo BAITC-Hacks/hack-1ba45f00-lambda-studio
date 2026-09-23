@@ -18,6 +18,7 @@ MAX_TOOL_STEPS = 6
 TEMPERATURE = 0.2
 MAX_RETRIES = 2
 PREVIEW_LEN = 160
+DEFAULT_BASE_URL = "https://api.openai.com/v1"
 
 
 class AiDisabled(RuntimeError):
@@ -45,7 +46,11 @@ def client_and_model():
     if not (s["api_key"] and s["model"]):
         raise AiDisabled("ИИ выключен: задайте OPENAI_API_KEY и OPENAI_MODEL в .env")
     from openai import OpenAI
-    return OpenAI(api_key=s["api_key"], base_url=s["base_url"], timeout=s["timeout"],
+    # Пустой OPENAI_BASE_URL= из .env попадает в окружение, и SDK при base_url=None берёт его оттуда —
+    # получается пустой адрес (UnsupportedProtocol → «Connection error»). Поэтому адрес всегда явный.
+    if not os.environ.get("OPENAI_BASE_URL", "").strip():
+        os.environ.pop("OPENAI_BASE_URL", None)
+    return OpenAI(api_key=s["api_key"], base_url=s["base_url"] or DEFAULT_BASE_URL, timeout=s["timeout"],
                   max_retries=MAX_RETRIES), s["model"]
 
 
