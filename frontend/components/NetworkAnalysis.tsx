@@ -13,7 +13,9 @@ const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), { ssr: false 
 const layers = ['ПОВЕРХНОСТЬ · ИЗВЕСТНЫЕ КУРЬЕРЫ', 'КОЛЕНО 1', 'КОЛЕНО 2', 'КОЛЕНО 3', 'КОЛЕНО 4'];
 const fallbackColors: Record<Role, string> = { consolidator: '#EDAE49', transit: '#3E8ED0', distributor: '#8E6BBF', terminal: '#4F9D69', coordinator: '#D1495B', peripheral: '#687078' };
 const idOf = (value: string | GraphNode) => typeof value === 'string' ? value : value.id;
-const TOP_NEIGHBOURS = 5;   // «Топ-30 + соседи»: сколько крупнейших соседей показывать у каждого узла топа
+const TOP_NEIGHBOURS = 5;
+const FOCUS_TARGETS = 5;   // «Обзор путей»: сколько главных узлов топа внизу
+const FOCUS_PATHS = 2;     // …и сколько цепочек от курьеров к каждому   // «Топ-30 + соседи»: сколько крупнейших соседей показывать у каждого узла топа
 const money = (value: number | null | undefined) => value == null ? '—' : value >= 1e6 ? `${(value / 1e6).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} млн ₸` : `${Math.round(value / 1000).toLocaleString('ru-RU')} тыс. ₸`;
 const pct = (value: number) => `${(value * 100).toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 
@@ -83,9 +85,9 @@ export default function NetworkAnalysis() {
   const colors = useMemo(() => ({ ...fallbackColors, ...Object.fromEntries(meta.roles.map(item => [item.id, item.color])) }) as Record<Role, string>, [meta]);
   const nodeById = useMemo(() => new Map(graph.nodes.map(node => [node.id, node])), [graph.nodes]);
   const showcase = useMemo(() => {
-    const targets = top.slice(0, 3).map(item => item.id).filter(id => nodeById.has(id));
+    const targets = top.slice(0, FOCUS_TARGETS).map(item => item.id).filter(id => nodeById.has(id));
     const edges: GraphLink[] = []; const mids = new Set<string>(); const seeds = new Set<string>(); const positions = new Map<string, { x: number; y: number }>();
-    const targetXs = [-270, 0, 270];
+    const targetXs = [-360, -180, 0, 180, 360];
     const seedPaths = (target: string) => {
       const found: Array<{ edges: GraphLink[]; score: number; seed: string }> = [];
       const walk = (current: string, path: GraphLink[], visited: Set<string>, level: number, score: number) => {
@@ -101,7 +103,7 @@ export default function NetworkAnalysis() {
       walk(target, [], new Set([target]), 0, Number.POSITIVE_INFINITY);
       const unique = new Map<string, { edges: GraphLink[]; score: number; seed: string }>();
       found.sort((a, b) => b.score - a.score).forEach(path => { if (!unique.has(path.seed)) unique.set(path.seed, path); });
-      return [...unique.values()].slice(0, 3);
+      return [...unique.values()].slice(0, FOCUS_PATHS);
     };
     targets.forEach((target, targetIndex) => {
       positions.set(target, { x: targetXs[targetIndex], y: 150 });
@@ -253,7 +255,7 @@ export default function NetworkAnalysis() {
   return <main className="screen"><Header tab={tab} setTab={setTab} /><Kpis meta={meta} /><div className="page-intro"><div><span className="eyebrow">MYCELIUM / AML NETWORK</span><h1>Сеть под поверхностью</h1><p>От известных курьеров — к узлам, где сходятся денежные потоки.</p></div><span className={`demo-tag ${source === 'api' ? 'live' : ''}`}>● {loading ? 'Подключение…' : source === 'api' ? 'Данные сервера' : 'Сохранённые данные'}</span></div><div className={`workspace ${filtersOpen ? '' : 'filters-hidden'}`}>
     {notice && <div className="app-notice" role="status">{notice}<button aria-label="Закрыть уведомление" onClick={()=>setNotice('')}>×</button></div>}
     {tab === 'graph' ? <><aside className={`filters hud ${filtersOpen ? 'open' : 'closed'}`}><button className="collapse" onClick={() => setFiltersOpen(value => !value)}>{filtersOpen ? '‹' : '›'}</button>{filtersOpen && <><Label>ФИЛЬТРЫ СЕТИ</Label><Field label="ПРИЗНАКИ РОЛИ" value={role} set={v=>{setRole(v);setShowAll(true);setEgo(null);}} options={meta.roles.map(item => [item.id, item.label.toUpperCase()])} /><Field label="КЛАСТЕР" value={cluster} set={v=>{setCluster(v);setShowAll(true);setEgo(null);}} options={clusters.map(value => [String(value), `КЛАСТЕР ${value}`])} /><div className="view-controls"><button onClick={()=>{setShowAll(false);setOverview(false);setCoreOnly(false);setEgo(null);setSelected(null);setDetail(null);}}>Обзор путей</button><button onClick={()=>{setOverview(true);setShowAll(false);setCoreOnly(false);setEgo(null);setSelected(null);setDetail(null);}}>Топ-30 + соседи</button><button onClick={()=>{setShowAll(true);setCoreOnly(false);setEgo(null);setSelected(null);setDetail(null);}}>Весь граф</button><button onClick={()=>{setShowAll(true);setEgo(null);setCoreOnly(v=>!v);}}>Ядро {coreOnly?'✓':''}</button></div><Field label="ЦВЕТ В ПОЛНОМ ГРАФЕ" value={colorMode} set={setColorMode} allowAll={false} options={ [['role','По роли'],['cluster','По кластеру']] }/><div className="rule" /><Label>РЕКОМЕНДУЕМ ПРОВЕРИТЬ</Label><div className="core-picks">{top.slice(0, 20).map(item => <button key={item.id} onClick={() => nodeById.get(item.id) && focus(nodeById.get(item.id)!)} className={selected?.id === item.id ? 'chosen' : ''}><span><b>#{item.rank} · GID {item.id.slice(-8)}</b><em>{labels[item.role]}</em></span><small>{pct(item.priority)}</small></button>)}</div><div className="rule" /><Label>ЛЕГЕНДА РОЛЕЙ</Label>{meta.roles.map(item => <div className="legend" key={item.id}><i style={{ background: colors[item.id] }} />{item.label.toUpperCase()} <small>{item.count}</small></div>)}</>}</aside>
-      <section ref={graphBox} className="graph hud"><div className="toolbar"><div className="search-wrap"><form onSubmit={search}><input value={query} onChange={event => setQuery(event.target.value)} placeholder="GID / ПОИСК" /><button>НАЙТИ</button></form>{searchResults.length > 1 && <div className="search-results">{searchResults.map(node => <button key={node.id} onClick={() => focus(node)}><span>{node.id}</span><small>{labels[node.role]} · {pct(node.priority)}</small></button>)}</div>}</div><span>{showAll ? ego ? 'ОКРЕСТНОСТЬ УЗЛА' : 'ПОЛНЫЙ ГРАФ' : overview ? 'ТОП-30 + СОСЕДИ' : 'ФОКУС · 3 ПРИОРИТЕТНЫХ УЗЛА'} · {shown.length} УЗЛОВ</span></div>
+      <section ref={graphBox} className="graph hud"><div className="toolbar"><div className="search-wrap"><form onSubmit={search}><input value={query} onChange={event => setQuery(event.target.value)} placeholder="GID / ПОИСК" /><button>НАЙТИ</button></form>{searchResults.length > 1 && <div className="search-results">{searchResults.map(node => <button key={node.id} onClick={() => focus(node)}><span>{node.id}</span><small>{labels[node.role]} · {pct(node.priority)}</small></button>)}</div>}</div><span>{showAll ? ego ? 'ОКРЕСТНОСТЬ УЗЛА' : 'ПОЛНЫЙ ГРАФ' : overview ? 'ТОП-30 + СОСЕДИ' : `ФОКУС · ${showcase.targets.size} ПРИОРИТЕТНЫХ УЗЛОВ`} · {shown.length} УЗЛОВ</span></div>
         {searchMessage && <div className="search-message" role="status">{searchMessage}</div>}
         {!shown.length && <div className="section-state">По выбранным фильтрам узлов нет.</div>}
         {!showAll && !overview ? <FocusNetwork nodes={shown} links={shownLinks} targets={showcase.targets} selected={selected?.id} dead={new Set([...blocked, ...withered])} onSelect={focus} /> : <>
