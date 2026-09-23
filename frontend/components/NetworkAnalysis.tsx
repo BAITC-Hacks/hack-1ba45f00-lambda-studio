@@ -92,6 +92,7 @@ export default function NetworkAnalysis() {
         if (level >= 4 || found.length > 80) return;
         graph.edges.filter(edge => idOf(edge.target) === current).sort((a, b) => b.sum_kzt - a.sum_kzt).slice(0, 14).forEach(edge => {
           const source = idOf(edge.source); if (visited.has(source)) return;
+          if (source !== target && targets.includes(source)) return;   // цепочка не идёт через другой главный узел: он внизу, стрелка пошла бы вверх
           const nextPath = [edge, ...path]; const nextScore = Math.min(score, edge.sum_kzt);
           if (nodeById.get(source)?.is_seed) found.push({ edges: nextPath, score: nextScore, seed: source });
           else walk(source, nextPath, new Set([...visited, source]), level + 1, nextScore);

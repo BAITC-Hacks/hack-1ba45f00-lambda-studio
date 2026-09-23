@@ -61,6 +61,6 @@ export default function FocusNetwork({ nodes, links, targets, selected, dead, on
         {root && <text y={r + 39} className="root-value">{amount(node.in_kzt)} · входящий поток</text>}
       </>}
     </g>; })}
-    <text x="400" y="595" textAnchor="middle" className="stratum-label">ВЫБРАННЫЕ ПУТИ · ВЕРТИКАЛЬ ПОКАЗЫВАЕТ ЭТАП МАРШРУТА, НЕ DEPTH</text>
+    <text x="400" y="595" textAnchor="middle" className="stratum-label">ВЫБРАННЫЕ ПУТИ · ВЕРТИКАЛЬ — ШАГ ЦЕПОЧКИ ОТ КУРЬЕРА (НЕ КОЛЕНО ВЫГРУЗКИ)</text>
   </svg></div>;
 }
