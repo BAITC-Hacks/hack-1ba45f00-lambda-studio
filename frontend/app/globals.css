@@ -123,3 +123,46 @@ body { background-color: #151716; background-image: radial-gradient(#3a3e3b 1px,
 .simulate { color: #172012; border-color: #A3E635; background: #A3E635; box-shadow: none; font-weight: 700; }
 .impact { color: #dfffa6; border-color: rgba(163,230,53,.25); background: #182015; box-shadow: none; }
 .top { background: #0c100e; }
+
+/* Mycelium investigation workspace */
+.screen { grid-template-rows: 58px 92px minmax(0,1fr); background:#101416; border-color:#303735; }
+.page-intro { grid-row:2; display:flex; align-items:center; justify-content:space-between; padding:0 10px; min-width:0; }
+.eyebrow { font:9px var(--font-mono),monospace; letter-spacing:.12em; color:#a3e635; }
+.page-intro h1 { margin:7px 0 5px; font-size:clamp(19px,2vw,28px); font-weight:600; letter-spacing:-.04em; color:#edf0e8; }
+.page-intro p { margin:0; font-size:11px; color:#859084; }
+.demo-tag { padding:8px 12px; border:1px solid #333c2c; background:#1a2116; border-radius:7px; color:#b6d27c; font-size:10px; white-space:nowrap; }
+.workspace { grid-row:3; border:0; background:transparent; }
+.header { background:#0b1012; border:0; border-right:1px solid #262e29; border-radius:12px; }
+.header nav button { font-size:12px; }
+.header nav button::before { content:'◇'; display:inline-block; width:22px; font-size:15px; }
+.header nav button.active::before { content:'♧'; }
+.filters { width:200px; left:0; top:0; bottom:0; padding:18px 14px; border-radius:14px; overflow-y:auto; background:#191e1e; }
+.filters.closed { width:34px; }
+.filters .collapse { position:sticky; float:right; top:0; margin:-9px -5px 0 0; }
+.filters .label { color:#9aa68d; font-size:9px; letter-spacing:.06em; }
+.field select { padding:8px; font-size:10px; border-radius:6px; }
+.rule { margin:16px 0; }
+.graph { left:212px; border-radius:14px; background:radial-gradient(ellipse at 50% 74%,#1d2c1880,transparent 53%),#0d1313; border:1px solid #252e27; }
+.filters-hidden .graph { left:46px; }
+.toolbar { left:14px; right:14px; top:12px; }
+.toolbar>span { color:#8eaa6a; font-size:8px; }
+.toolbar input { width:125px; font-size:10px; }
+.graph-caption { position:absolute; left:12px; right:12px; bottom:10px; display:flex; justify-content:space-between; gap:10px; padding:12px; border-radius:8px; background:#1a211de6; color:#9bab91; font:9px var(--font-mono),monospace; pointer-events:none; }
+.core-picks { display:grid; gap:6px; }
+.core-picks button { display:flex; align-items:center; justify-content:space-between; gap:6px; padding:10px 8px; border:1px solid #2c352b; border-radius:7px; color:#c7dbb0; background:#111713; font:10px var(--font-mono),monospace; text-align:left; }
+.core-picks button.chosen { border-color:#a3e635; background:#26301d; }
+.core-picks small { color:#8fa478; }
+.legend { font-size:8px; margin:9px 0; }.legend i { box-shadow:none; }
+.drawer { top:0; bottom:0; right:0; padding:20px; width:310px; background:#191f1cf7; border-color:#3c4933; }
+.drawer .label { color:#9eaf90; }.node-title { flex-wrap:wrap; gap:12px; }
+.node-volume { display:grid; grid-template-columns:1.6fr 1fr; gap:8px; margin:14px 0; }
+.node-volume span { padding:12px; border:1px solid #30392d; border-radius:9px; font-size:10px; color:#90a083; background:#111713; }
+.node-volume strong { display:block; margin-top:8px; color:#c9f18c; font:16px var(--font-mono),monospace; }
+.simulation-controls { padding:12px; background:#242d1d; border:1px solid #35442b; border-radius:10px; margin:14px 0; }
+.simulation-controls small { display:block; color:#9da991; font-size:10px; line-height:1.5; margin-top:9px; }
+.simulate,.reset { position:static; font-size:11px; padding:12px 8px; }
+.reset { background:#1b2418; color:#bbc9ac; }
+.simulation-banner { position:absolute; bottom:62px; left:18px; right:18px; z-index:5; display:flex; align-items:center; gap:14px; padding:16px; border:1px solid #627942; border-radius:12px; background:#1b2516f5; box-shadow:0 8px 32px #0008; }
+.simulation-banner strong { color:#c3f578; font:22px var(--font-mono),monospace; white-space:nowrap; }.simulation-banner span { color:#e2ebd4; font-size:12px; }.simulation-banner small { color:#829276; font-size:9px; }
+.simulation-banner button { margin-left:auto; padding:8px; border:1px solid #546544; border-radius:6px; background:#2a3820; color:#d9e9c6; font-size:10px; }
+@media(max-width:1100px){.screen{padding-left:190px}.header{width:162px}.filters{width:170px}.graph{left:180px}.page-intro h1{font-size:20px}.graph-caption{font-size:8px}.toolbar>span{display:none}}
