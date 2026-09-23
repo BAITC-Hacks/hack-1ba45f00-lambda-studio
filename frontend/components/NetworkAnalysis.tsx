@@ -9,7 +9,7 @@ type Role='consolidator'|'transit'|'distributor'|'terminal'|'coordinator'|'perip
 type Node={id:number;role:Role;role_score:number;cluster_id:number;priority_score:number;evidence:string;is_seed:boolean;depth:number;in_deg:number;out_deg:number;in_kzt:number;out_kzt:number;x?:number;y?:number;fy?:number};
 type Link={source:number|Node;target:number|Node;sum_kzt:number;n_tx:number};
 const roles:Record<Role,string>={consolidator:'КОНСОЛИДАЦИЯ',transit:'ТРАНЗИТ',distributor:'РАСПРЕДЕЛЕНИЕ',terminal:'ТЕРМИНАЛ',coordinator:'КООРДИНАЦИЯ',peripheral:'ПЕРИФЕРИЯ'};
-const roleColor:Record<Role,string>={consolidator:'#FF4D6D',transit:'#7CF2C0',distributor:'#7CF2C0',terminal:'#FF4D6D',coordinator:'#B794F6',peripheral:'#1E2A3A'};
+const roleColor:Record<Role,string>={consolidator:'#A3E635',transit:'#86EFAC',distributor:'#5FC66E',terminal:'#D9FF8C',coordinator:'#C4B5FD',peripheral:'#303833'};
 const layerNames=['ПОВЕРХНОСТЬ · ИЗВЕСТНЫЕ КУРЬЕРЫ','КОЛЕНО 1','КОЛЕНО 2','КОЛЕНО 3','КОЛЕНО 4'];
 const idOf=(v:number|Node)=>typeof v==='number'?v:v.id;
 const money=(v:number)=>v>=1e6?`${(v/1e6).toLocaleString('ru-RU',{maximumFractionDigits:1})} млн ₸`:`${Math.round(v/1000)} тыс. ₸`;
@@ -26,7 +26,7 @@ export default function NetworkAnalysis(){
  const focus=(node?:Node)=>{if(!node)return;setSelected(node);setTab('graph');setTimeout(()=>{graphRef.current?.centerAt(node.x,node.y,500);graphRef.current?.zoom(2.8,500)},80)};
  const search=(e:React.FormEvent)=>{e.preventDefault();focus(nodes.find(n=>String(n.id)===query.trim()))};
  useEffect(()=>{const el=graphBox.current;if(!el)return;const update=()=>setSize({width:el.clientWidth,height:el.clientHeight});update();const observer=new ResizeObserver(update);observer.observe(el);return()=>observer.disconnect()},[tab]);
- useEffect(()=>{if(tab==='graph')setTimeout(()=>{graphRef.current?.d3Force('charge')?.strength((n:Node)=>n.depth===4?-520:-75);graphRef.current?.d3Force('link')?.distance((l:Link)=>(l.target as Node).depth===4?135:48)},80)},[tab,shown]);
+ useEffect(()=>{if(tab==='graph')setTimeout(()=>{graphRef.current?.d3Force('charge')?.strength((n:Node)=>n.depth===4?-360:-42);graphRef.current?.d3Force('link')?.distance((l:Link)=>(l.target as Node).depth===4?120:42)},80)},[tab,shown]);
  useEffect(()=>{if(tab!=='graph'||!shown.length)return;const timers=[450,1400,2800].map(ms=>setTimeout(()=>graphRef.current?.zoomToFit(650,88),ms));return()=>timers.forEach(clearTimeout)},[tab,shown,shownLinks,filtersOpen,size]);
  useEffect(()=>{if(selected&&!shownIds.has(selected.id))setSelected(null)},[shownIds,selected]);
  const incoming=selected?links.filter(l=>idOf(l.target)===selected.id).map(l=>({node:nodes.find(n=>n.id===idOf(l.source))!,sum:l.sum_kzt})):[];
