@@ -4,6 +4,8 @@ import { GraphNode, GraphLink } from '../lib/api';
 
 type Props = { nodes: GraphNode[]; links: GraphLink[]; targets: Set<string>; selected: string | undefined; dead: Set<string>; onSelect: (node: GraphNode) => void };
 const id = (value: string | GraphNode) => typeof value === 'string' ? value : value.id;
+// Курьер, который сам получил роль (4 координатора, 3 распределителя…), — шляпка в цвет роли, как в легенде
+const capColor: Record<string, string> = { coordinator: '#D1495B', distributor: '#8E6BBF', consolidator: '#EDAE49', terminal: '#4F9D69' };
 const amount = (value: number) => `${(value / 1e6).toLocaleString('ru-RU', { maximumFractionDigits: 2 })} млн ₸`;
 
 export default function FocusNetwork({ nodes, links, targets, selected, dead, onSelect }: Props) {
@@ -52,7 +54,7 @@ export default function FocusNetwork({ nodes, links, targets, selected, dead, on
     {nodes.map(node => { const p = positions.get(node.id); if (!p) return null; const root = targets.has(node.id), primary = roots[0]?.id === node.id; const r = root ? primary ? 47 : 31 : 12, dim = dead.has(node.id); return <g key={node.id} transform={`translate(${p.x},${p.y})`} className="network-node" role="button" tabIndex={0} aria-label={`Открыть GID ${node.id}`} onClick={() => onSelect(node)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(node); } }}>
       <title>{`GID ${node.id} · колено ${node.depth} · приоритет ${(node.priority * 100).toFixed(1)}%`}</title>
       <circle r={root ? r + 12 : 22} fill="transparent"/>
-      {node.is_seed && !root ? <g opacity={dim ? .25 : 1}><path d="M -2 0 L -2 15 L 2 15 L 2 0" fill="#909ba9"/><path d="M -11 0 A 11 12 0 0 1 11 0 Z" fill="url(#seed-cap)"/><text y="-22" className="seed-id">·{node.id.slice(-6)}</text></g> : <>
+      {node.is_seed && !root ? <g opacity={dim ? .25 : 1}><path d="M -2 0 L -2 15 L 2 15 L 2 0" fill="#909ba9"/><path d="M -11 0 A 11 12 0 0 1 11 0 Z" fill={capColor[node.role] ?? 'url(#seed-cap)'}/>{capColor[node.role] && <circle r="16" cy="-4" fill={capColor[node.role]} opacity=".18"/>}<text y="-22" className="seed-id">·{node.id.slice(-6)}</text></g> : <>
         {root && <circle r={r + 8} fill={dim ? '#27352a' : '#a3e635'} opacity=".55" filter="url(#core-bloom)"/>}
         <circle r={r} fill={dim ? '#303a33' : root ? '#ace34f' : '#17372b'} stroke={dim ? '#516054' : '#93d988'} strokeWidth="1.4"/>
         <circle r={r * .61} fill={dim ? '#4f5b51' : root ? '#dcff98' : '#87dba0'}/>
