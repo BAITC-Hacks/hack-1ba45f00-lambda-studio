@@ -15,3 +15,7 @@ def pipeline_outputs():
     if not (ROOT / "out" / "web" / "cards.json").exists():
         from mycelium import pipeline
         pipeline.run()
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "ai: живые вопросы к OpenAI; пропускаются без OPENAI_API_KEY")
