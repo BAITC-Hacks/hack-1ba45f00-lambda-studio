@@ -13,6 +13,7 @@ const ForceGraph2D = dynamic(() => import('react-force-graph-2d'), { ssr: false 
 const layers = ['ПОВЕРХНОСТЬ · ИЗВЕСТНЫЕ КУРЬЕРЫ', 'КОЛЕНО 1', 'КОЛЕНО 2', 'КОЛЕНО 3', 'КОЛЕНО 4'];
 const fallbackColors: Record<Role, string> = { consolidator: '#EDAE49', transit: '#3E8ED0', distributor: '#8E6BBF', terminal: '#4F9D69', coordinator: '#D1495B', peripheral: '#687078' };
 const idOf = (value: string | GraphNode) => typeof value === 'string' ? value : value.id;
+const TOP_NEIGHBOURS = 5;   // «Топ-30 + соседи»: сколько крупнейших соседей показывать у каждого узла топа
 const money = (value: number | null | undefined) => value == null ? '—' : value >= 1e6 ? `${(value / 1e6).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} млн ₸` : `${Math.round(value / 1000).toLocaleString('ru-RU')} тыс. ₸`;
 const pct = (value: number) => `${(value * 100).toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 
@@ -115,8 +116,16 @@ export default function NetworkAnalysis() {
   }, [graph.edges, nodeById, top]);
   const compactIds = useMemo(() => new Set(showcase.positions.keys()), [showcase]);
   const priorityIds = useMemo(() => {
+    // Топ-30 и у каждого — до 5 крупнейших по сумме соседей: у распределителей по 60–116 получателей,
+    // и «все соседи» превращают вид в клубок (~600 узлов вместо ~150).
     const primary = new Set(top.map(n => n.id)), ids = new Set(primary);
-    graph.edges.forEach(e => { if (primary.has(idOf(e.source)) || primary.has(idOf(e.target))) { ids.add(idOf(e.source)); ids.add(idOf(e.target)); } });
+    const byNode = new Map<string, { id: string; sum: number }[]>();
+    graph.edges.forEach(e => {
+      const s = idOf(e.source), t = idOf(e.target);
+      if (primary.has(s)) byNode.set(s, [...(byNode.get(s) ?? []), { id: t, sum: e.sum_kzt }]);
+      if (primary.has(t)) byNode.set(t, [...(byNode.get(t) ?? []), { id: s, sum: e.sum_kzt }]);
+    });
+    byNode.forEach(list => list.sort((a, b) => b.sum - a.sum).slice(0, TOP_NEIGHBOURS).forEach(n => ids.add(n.id)));
     return ids;
   }, [graph.edges, top]);
   const shown = useMemo(() => graph.nodes.filter(node => (showAll ? (!ego || ego.nodes.includes(node.id) || !!detail?.upstream_seeds.includes(node.id)) : overview ? priorityIds.has(node.id) : compactIds.has(node.id)) && (!coreOnly || node.in_core) && (role === 'all' || node.role === role) && (cluster === 'all' || node.cluster === Number(cluster))).map(node => {
