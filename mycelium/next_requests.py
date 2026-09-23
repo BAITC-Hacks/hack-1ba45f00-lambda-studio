@@ -1,7 +1,7 @@
 """«Что запросить дальше» (CLAUDE.md §12): где выгрузка обрывается на самом интересном месте.
 
-outgoing — узлы границы выборки (4-е колено): исходящие не собирались; ранжируем по охвату курьеров,
-           затем по числу плательщиков и сумме входа.
+outgoing — узлы границы выборки (4-е колено): исходящие не собирались; ранжируем по сумме входа, затем
+           по числу плательщиков — куда пришло больше всего денег, там обрыв дороже всего.
 incoming — не-курьеры, которые отдали больше, чем видно входящих: приток вне выборки.
 """
 from __future__ import annotations
@@ -21,7 +21,7 @@ def build_requests(df: pd.DataFrame) -> pd.DataFrame:
     inc = d[d.inflow_outside_sample & (d.out_kzt > 0)] \
         .sort_values(["out_kzt", "_gid"], ascending=[False, True]).head(MAX_INCOMING)
     out = d[d.truncated & (d.in_deg > 0)] \
-        .sort_values(["seed_reach", "in_deg", "in_kzt", "_gid"], ascending=[False, False, False, True]) \
+        .sort_values(["in_kzt", "in_deg", "_gid"], ascending=[False, False, True]) \
         .head(MAX_ROWS - len(inc))
     rows = []
     for g, r in out.iterrows():

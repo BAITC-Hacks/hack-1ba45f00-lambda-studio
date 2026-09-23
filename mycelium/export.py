@@ -299,22 +299,33 @@ def facts_json(df: pd.DataFrame, G, meta: dict, top: pd.DataFrame, clusters_t: p
             "components": {"n_with_edges": len(comps), "sizes": comps[:5],
                            "isolated_nodes": int((~df.has_edges).sum())},
             "core": {"size": int(df.core_size.max()), "roles": by_label(df[df.in_core].role.value_counts()),
-                     "rings_total_nodes": int(df.in_cycle.sum())},
+                     "nodes_in_any_ring_incl_core": int(df.in_cycle.sum())},
             "thresholds": meta["thresholds"],
         },
         "top": top_rows,
         "clusters": clusters,
-        "resilience": {"baseline": res["baseline"], "strategies": strat},
+        "resilience": {
+            "metric": "drop_reach_pct — на сколько процентов падает поток денег курьеров по сети, если "
+                      "заблокировать N узлов (не курьеров) по данной стратегии; drop_deep_pct — то же для "
+                      "потока до 3–4 колена",
+            "baseline": res["baseline"],
+            "strategies": {STRATEGY_LABELS[k]: v for k, v in strat.items()},
+        },
         "blocking_plan": top_block_json(plan),
         "next_requests": next_requests_json(requests),
         "limitations": LIMITATIONS,
     }
 
 
+STRATEGY_LABELS = {"plan": "блокировка по плану", "priority": "блокировка топа проверки",
+                   "turnover": "блокировка топа по обороту", "random": "блокировка случайных узлов"}
+
 FACTS_GLOSSARY = {
     "курьеры": "исходные 81 клиент (seed) из запроса правоохранителей: network.n_seeds_couriers, "
                "в кластере — n_couriers, у узла — is_seed и seed_reach (деньги скольких курьеров доходят до узла)",
-    "роли": "network.roles — число узлов с каждой ролью; названия как на экране. Роль «Транзит» — это НЕ курьеры",
+    "роли": "network.roles — число узлов с каждой ролью; названия как на экране",
+    "кольца": "network.core.size — главное ядро-кольцо; network.core.nodes_in_any_ring_incl_core — все узлы "
+              "во всех кольцах, включая ядро (это не отдельное кольцо вокруг ядра)",
     "Точка сбора": "роль consolidator: плательщиков ≥ 6",
     "Конечный получатель": "роль terminal: деньги оседают, исходящих нет, узел раскрыт обходом",
 }
