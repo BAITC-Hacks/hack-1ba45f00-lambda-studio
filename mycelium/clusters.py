@@ -1,50 +1,18 @@
-"""ВРЕМЕННЫЕ фолбэки для модулей участника B (temporal, clusters, resilience).
+"""Кластеры (CLAUDE.md §9): Louvain на ненаправленной проекции и шаблонные гипотезы.
 
-Нужны, только пока B не закоммитил свои файлы: pipeline.py импортирует модули B по сигнатурам
-CLAUDE.md §6.8 и берёт функцию отсюда, лишь если модуля нет (с громким предупреждением).
-Логика — как в эталоне explore.py и §7/§9. Когда модули B появятся, файл можно удалить.
+Направление переводов при кластеризации теряется — это оговорено в README и ROLES.md.
+Роли и приоритет при этом считаются по направленному графу.
 """
 from __future__ import annotations
 
 import math
 
 import networkx as nx
-import numpy as np
 import pandas as pd
 
 from mycelium import config
-from mycelium import explore
+from mycelium.evidence import fmt_kzt
 
-
-# ── temporal.node_temporal ────────────────────────────────────────────────────
-
-def node_temporal(T: pd.DataFrame) -> pd.DataFrame:
-    """index=gid; hold_median_days, fast_pass_share, sync_max_payers."""
-    outs = T.groupby("src")["date"].apply(lambda s: np.sort(s.values))
-    hold, fast = {}, {}
-    for g, grp in T.groupby("dst"):
-        if g not in outs.index:
-            continue
-        od = outs[g]
-        idx = np.searchsorted(od, grp.date.values)
-        h, w = [], []
-        for i, d, s in zip(idx, grp.date.values, grp.sum_kzt.values):
-            if i < len(od):
-                h.append((od[i] - d) / np.timedelta64(1, "D"))
-                w.append(s)
-        if h:
-            hold[g] = float(np.median(h))
-            fast[g] = float(sum(s for x, s in zip(h, w) if x <= config.FAST_PASS_DAYS) / grp.sum_kzt.sum())
-    sync = T.groupby(["dst", "date"])["src"].nunique().groupby("dst").max()
-    res = pd.DataFrame({"hold_median_days": pd.Series(hold, dtype=float),
-                        "fast_pass_share": pd.Series(fast, dtype=float)})
-    res = res.join(sync.rename("sync_max_payers"), how="outer")
-    res["sync_max_payers"] = res.sync_max_payers.fillna(0).astype(int)
-    res.index.name = "gid"
-    return res
-
-
-# ── clusters.assign_clusters / describe_clusters ──────────────────────────────
 
 def assign_clusters(G: nx.DiGraph, df: pd.DataFrame) -> pd.Series:
     """Louvain на ненаправленной проекции, w = log1p(sum_kzt). 0 — узлы без рёбер; 1… по убыванию размера."""
@@ -65,8 +33,6 @@ def assign_clusters(G: nx.DiGraph, df: pd.DataFrame) -> pd.Series:
 
 def describe_clusters(G: nx.DiGraph, df: pd.DataFrame) -> pd.DataFrame:
     """Схема clusters.csv. Вызывается после ролей и приоритета."""
-    from mycelium.evidence import fmt_kzt
-
     cid = df.cluster_id
     internal: dict = {}
     inflow: dict = {}
@@ -110,10 +76,3 @@ def describe_clusters(G: nx.DiGraph, df: pd.DataFrame) -> pd.DataFrame:
             "hypothesis": hyp,
         })
     return pd.DataFrame(rows)
-
-
-# ── resilience.cut_kzt ────────────────────────────────────────────────────────
-
-def cut_kzt(G: nx.DiGraph, df: pd.DataFrame) -> pd.Series:
-    """Зависимый поток по узлу — эталон explore.cut_kzt."""
-    return explore.cut_kzt(G, df).astype(float)

@@ -2,43 +2,26 @@
 
     python -m mycelium.pipeline [--data data] [--out out]
 
-Модули участника B (temporal, clusters, resilience) вызываются только через функции CLAUDE.md §6.8.
-Пока файла B нет, берётся временный фолбэк из _fallback.py — с громким предупреждением.
+Модули вызываются только через интерфейсы CLAUDE.md §6.8.
 """
 from __future__ import annotations
 
 import argparse
-import importlib
 import sys
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from types import ModuleType
 
 import pandas as pd
 
-from mycelium import config, explore
+from mycelium import clusters as clusters_mod
+from mycelium import config, explore, resilience, temporal
 from mycelium.evidence import add_evidence, fmt_kzt
 from mycelium.export import write_csvs
 from mycelium.features import add_cluster_features, add_temporal, node_features
 from mycelium.load import load_dataset
 from mycelium.priority import add_priority, add_rank, top_table
 from mycelium.roles import add_roles, role_counts
-
-FALLBACKS_USED: list[str] = []
-
-
-def b_module(name: str) -> ModuleType:
-    """Модуль участника B; если его ещё нет — временный фолбэк."""
-    try:
-        return importlib.import_module(f"mycelium.{name}")
-    except ModuleNotFoundError as e:
-        if e.name != f"mycelium.{name}":
-            raise                       # внутри модуля B не хватает зависимости — это его ошибка
-        FALLBACKS_USED.append(name)
-        print(f"  ⚠ модуль mycelium/{name}.py (участник B) не найден — временный фолбэк из _fallback.py")
-        return importlib.import_module("mycelium._fallback")
-
 
 @contextmanager
 def step(title: str, timings: list):
@@ -77,10 +60,9 @@ def run(data_dir: Path = config.DATA_DIR, out_dir: Path = config.OUT_DIR) -> pd.
         df = node_features(ds.nodes, G)
 
     with step("Временные метрики (temporal)", timings):
-        df = add_temporal(df, b_module("temporal").node_temporal(ds.transactions))
+        df = add_temporal(df, temporal.node_temporal(ds.transactions))
 
     with step("Кластеры (Louvain)", timings):
-        clusters_mod = b_module("clusters")
         df = add_cluster_features(df, G, clusters_mod.assign_clusters(G, df))
 
     with step("Роли и устойчивость (50 вариантов порогов)", timings):
@@ -88,7 +70,7 @@ def run(data_dir: Path = config.DATA_DIR, out_dir: Path = config.OUT_DIR) -> pd.
         check_against_explore(df)
 
     with step("Зависимый поток (cut_kzt)", timings):
-        cut = b_module("resilience").cut_kzt(G, df).reindex(df.index)
+        cut = resilience.cut_kzt(G, df).reindex(df.index)
         df["cut_kzt"] = cut.fillna(0.0).astype(float)
 
     with step("Приоритет, обоснования, топ", timings):
@@ -121,8 +103,6 @@ def report(df: pd.DataFrame, clusters: pd.DataFrame, total: float) -> None:
     print(f"  {'итого':<34} {int(counts.sum()):>5}")
     print(f"Кластеров: {len(clusters)} (с несколькими курьерами: {int((clusters.n_seed > 1).sum())}); "
           f"ядро-кольцо: {int(df.in_core.sum())} узлов")
-    if FALLBACKS_USED:
-        print(f"⚠ Использованы временные фолбэки вместо модулей B: {', '.join(FALLBACKS_USED)}")
     print(f"Пайплайн отработал за {total:.1f} с")
 
 
