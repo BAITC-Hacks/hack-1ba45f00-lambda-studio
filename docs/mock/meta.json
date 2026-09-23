@@ -1,0 +1,58 @@
+{
+ "roles": [
+  {
+   "id": "coordinator",
+   "label": "Координатор",
+   "color": "#D1495B",
+   "count": 8
+  },
+  {
+   "id": "consolidator",
+   "label": "Точка сбора",
+   "color": "#EDAE49",
+   "count": 24
+  },
+  {
+   "id": "distributor",
+   "label": "Распределитель",
+   "color": "#8E6BBF",
+   "count": 20
+  },
+  {
+   "id": "transit",
+   "label": "Транзит",
+   "color": "#3E8ED0",
+   "count": 228
+  },
+  {
+   "id": "terminal",
+   "label": "Конечный получатель",
+   "color": "#4F9D69",
+   "count": 196
+  },
+  {
+   "id": "peripheral",
+   "label": "Периферия",
+   "color": "#A0A4AB",
+   "count": 1772
+  }
+ ],
+ "network": {
+  "n_nodes": 2248,
+  "n_edges": 3119,
+  "n_seeds": 81,
+  "total_kzt": 365890012.01,
+  "n_clusters": 48,
+  "core_size": 85,
+  "period": "2026-07-01 — 2026-07-31"
+ },
+ "thresholds": {
+  "COORD_MIN_IN": 8,
+  "COORD_MIN_OUT": 20,
+  "DIST_MIN_OUT": 20,
+  "CONS_MIN_IN": 6,
+  "TR_MIN_PASS": 0.8,
+  "TR_MAX_HOLD": 3,
+  "TERM_MIN_KZT": 200000
+ }
+}
