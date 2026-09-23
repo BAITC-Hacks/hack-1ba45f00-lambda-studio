@@ -82,6 +82,38 @@ def _tag_gids(text: str) -> str:
     return re.sub(r"(?<![\d:])(\d{18})(?!\d)", r"[gid:\1]", text)
 
 
+def semantic_issues(text: str, f: dict) -> list[str]:
+    """Смысловые проверки справки поверх числовой сверки.
+
+    1. В «Кого проверить первым» — ровно первые 5 узлов facts.top в том же порядке.
+    2. Проценты стратегий при N = 10 не перепутаны (у каждого процента — своя стратегия рядом).
+    """
+    import re
+    issues = []
+    m = re.search(r"\*\*Кого проверить первым\.?\*\*(.*?)(?=\n\*\*|\Z)", text, re.S)
+    want = [t["id"] for t in f["top"][:5]]
+    if not m:
+        issues.append("нет раздела «Кого проверить первым»")
+    else:
+        got = re.findall(r"\[gid:(\d+)\]", m.group(1))
+        if got[:5] != want:
+            issues.append("в «Кого проверить первым» не первые 5 узлов топа проверки по порядку")
+    names = {"plan": r"план\w* блокировк", "priority": r"топ\w* проверк|по приоритет",
+             "turnover": r"по оборот", "random": r"случайн"}
+    strat = f["resilience"]["strategies"]
+    for sent in re.split(r"(?<=[.!?])\s+", text):
+        for key, pat in names.items():
+            if not re.search(pat, sent, re.I):
+                continue
+            own = str(strat[key]["10"]["drop_reach_pct"]).replace(".", ",")
+            others = {k: str(v["10"]["drop_reach_pct"]).replace(".", ",") for k, v in strat.items() if k != key}
+            pcts = re.findall(r"(\d+(?:,\d+)?)\s*%", sent)
+            mentioned = [k for k, p in names.items() if re.search(p, sent, re.I)]
+            if len(mentioned) == 1 and pcts and own not in pcts and any(o in pcts for o in others.values()):
+                issues.append(f"процент в предложении о стратегии «{key}» относится к другой стратегии")
+    return issues
+
+
 def llm_brief(f: dict) -> str:
     client, model = analyst.client_and_model()
     messages = [{"role": "system", "content": prompts.BRIEF},
@@ -109,6 +141,14 @@ def generate(out_dir: Path = config.OUT_DIR, force_template: bool = False) -> di
         text = template_brief(f)
 
     check = verify(text, [f], graph_gids)
+    check["issues"] += semantic_issues(text, f)
+    check["verified"] = not check["issues"]
+    if source == "openai" and not check["verified"]:
+        print("⚠ справка модели не прошла сверку: " + "; ".join(check["issues"]) + " — оставляю шаблонную")
+        text, source, model = template_brief(f), "template", None
+        check = verify(text, [f], graph_gids)
+        check["issues"] += semantic_issues(text, f)
+        check["verified"] = not check["issues"]
     meta = {"verified": check["verified"], "issues": check["issues"], "gids": check["gids"],
             "source": source, "model": model, "generated_at": datetime.now().isoformat(timespec="seconds")}
     (out_dir / BRIEF_MD).write_text(text + "\n", encoding="utf-8")
