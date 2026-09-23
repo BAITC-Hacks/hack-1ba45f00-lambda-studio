@@ -40,6 +40,7 @@ SUBJECTS = {
 }
 SUBJECT_NAMES = {"courier": "курьеров"} | {r: f"«{config.ROLE_LABELS[r]}»" for r in config.ROLES}
 _NUM = r"(\d{1,3}(?:[ \u00a0\u202f]\d{3})+|\d+)"
+_PREP = r"(?:\s+(?:в|во|у|из|на|среди)\s+(?!кластер|колен|шаг)[а-яё-]+)?"   # «в кластере 3» — номер, не счётчик   # «курьеров в ядре 36», «координаторов в кластере 3»
 _ADJ = r"(?:[а-яё]+(?:ых|их|ые|ие)\s+)?"                  # «5 известных курьеров»
 # после числа не должна идти другая единица: «Точка сбора — 8 плательщиков» — это про плательщиков
 _NOT_UNIT = r"(?![\d,.]*\s*(?:плат|получ|млн|тыс|%|₸|дн|пер|узл|клиент|связ|кластер|курьер|колен|раз))"
@@ -55,7 +56,7 @@ def subject_mentions(text: str) -> list[tuple[str, float, str]]:
     for subj, pat in SUBJECTS.items():
         for m in re.finditer(rf"(?<![\d,.]){_NUM}\s+{_ADJ}(?:{pat})", text, re.I):
             out.append((subj, float(re.sub(r"\s", "", m.group(1))), m.group(0)))
-        for m in re.finditer(rf"(?:{pat})\s*[:—–-]?\s*«?\s*{_NUM}(?![\d,.]\d){_NOT_UNIT}", text, re.I):
+        for m in re.finditer(rf"(?:{pat}){_PREP}\s*[:—–-]?\s*«?\s*{_NUM}(?![\d,.]\d){_NOT_UNIT}", text, re.I):
             out.append((subj, float(re.sub(r"\s", "", m.group(1))), m.group(0)))
     return out
 
