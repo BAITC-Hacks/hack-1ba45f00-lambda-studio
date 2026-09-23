@@ -18,6 +18,9 @@ def diff_shape(mock, real, path: str = "$", loose_null: bool = True) -> list[str
     if "null" in (km, kr) and loose_null:
         return errs
     if km != kr:
+        # rule_trace[].checks[].value: число, строка («курьер», «граница выборки») или null — FRONTEND.md §4
+        if path.endswith(".value") and {km, kr} <= {"number", "str"}:
+            return errs
         return [f"{path}: тип {kr}, в моке {km}"]
     if isinstance(mock, dict):
         # словарь id → объект (cards) или N → объект (resilience): сверяем значения с первым значением мока
