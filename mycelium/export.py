@@ -269,30 +269,66 @@ def facts_json(df: pd.DataFrame, G, meta: dict, top: pd.DataFrame, clusters_t: p
     for _, t in top.head(20).iterrows():
         r = df.loc[int(t.gid)]
         top_rows.append({
-            "rank": int(t["rank"]), "id": str(t.gid), "role": r.role, "role_label": config.ROLE_LABELS[r.role],
+            "rank": int(t["rank"]), "id": str(t.gid), "role_label": config.ROLE_LABELS[r.role],
             "priority": _r(r.priority_score), "role_score": _r(r.role_score, 2), "cluster": int(r.cluster_id),
             "is_seed": bool(r.is_seed), "in_core": bool(r.in_core), "in_deg": int(r.in_deg), "out_deg": int(r.out_deg),
             "in_kzt": _r(r.in_kzt, 2), "out_kzt": _r(r.out_kzt, 2), "cut_kzt": _r(r.cut_kzt, 2),
-            "seed_reach": int(r.seed_reach), "evidence": r.evidence, "why": t.why,
+            "seed_reach_couriers": int(r.seed_reach), "evidence": r.evidence, "why": t.why,
         })
     strat = {name: {n: {k: v for k, v in e.items() if k != "removed"} for n, e in by_n.items()}
              for name, by_n in res["strategies"].items()}
+    n = meta["network"]
+
+    def by_label(counts) -> dict:
+        """Счётчики ролей под русскими названиями, как на экране, в порядке легенды."""
+        return {config.ROLE_LABELS[r]: int(counts.get(r, 0)) for r in config.ROLES if counts.get(r, 0)}
+
+    clusters = []
+    for c in clusters_json(clusters_t):
+        members = df[df.cluster_id == c["cluster_id"]]
+        clusters.append({"cluster_id": c["cluster_id"], "n_nodes": c["n_nodes"], "n_couriers": c.pop("n_seed"),
+                         "sum_kzt_internal": c["sum_kzt_internal"], "top_ids": c["top_ids"],
+                         "roles": by_label(members.role.value_counts()), "hypothesis": c["hypothesis"]})
     return {
-        "network": {**meta["network"],
-                    "roles": {x["id"]: x["count"] for x in meta["roles"]},
-                    "components": {"n_with_edges": len(comps), "sizes": comps[:5],
-                                   "isolated_nodes": int((~df.has_edges).sum())},
-                    "core": {"size": int(df.core_size.max()),
-                             "roles": df[df.in_core].role.value_counts().to_dict(),
-                             "rings_total_nodes": int(df.in_cycle.sum())},
-                    "thresholds": meta["thresholds"]},
+        "glossary": FACTS_GLOSSARY,
+        "network": {
+            "n_nodes": n["n_nodes"], "n_edges": n["n_edges"],
+            "n_seeds_couriers": n["n_seeds"],
+            "total_kzt": n["total_kzt"], "period": n["period"], "n_clusters": n["n_clusters"],
+            "roles": by_label(df.role.value_counts()),
+            "components": {"n_with_edges": len(comps), "sizes": comps[:5],
+                           "isolated_nodes": int((~df.has_edges).sum())},
+            "core": {"size": int(df.core_size.max()), "roles": by_label(df[df.in_core].role.value_counts()),
+                     "nodes_in_any_ring_incl_core": int(df.in_cycle.sum())},
+            "thresholds": meta["thresholds"],
+        },
         "top": top_rows,
-        "clusters": clusters_json(clusters_t),
-        "resilience": {"baseline": res["baseline"], "strategies": strat},
+        "clusters": clusters,
+        "resilience": {
+            "metric": "drop_reach_pct — на сколько процентов падает поток денег курьеров по сети, если "
+                      "заблокировать N узлов (не курьеров) по данной стратегии; drop_deep_pct — то же для "
+                      "потока до 3–4 колена",
+            "baseline": res["baseline"],
+            "strategies": {STRATEGY_LABELS[k]: v for k, v in strat.items()},
+        },
         "blocking_plan": top_block_json(plan),
         "next_requests": next_requests_json(requests),
         "limitations": LIMITATIONS,
     }
+
+
+STRATEGY_LABELS = {"plan": "блокировка по плану", "priority": "блокировка топа проверки",
+                   "turnover": "блокировка топа по обороту", "random": "блокировка случайных узлов"}
+
+FACTS_GLOSSARY = {
+    "курьеры": "исходные 81 клиент (seed) из запроса правоохранителей: network.n_seeds_couriers, "
+               "в кластере — n_couriers, у узла — is_seed и seed_reach (деньги скольких курьеров доходят до узла)",
+    "роли": "network.roles — число узлов с каждой ролью; названия как на экране",
+    "кольца": "network.core.size — главное ядро-кольцо; network.core.nodes_in_any_ring_incl_core — все узлы "
+              "во всех кольцах, включая ядро (это не отдельное кольцо вокруг ядра)",
+    "Точка сбора": "роль consolidator: плательщиков ≥ 6",
+    "Конечный получатель": "роль terminal: деньги оседают, исходящих нет, узел раскрыт обходом",
+}
 
 
 def write_web(df: pd.DataFrame, G, summary: dict, clusters_t: pd.DataFrame, top: pd.DataFrame,

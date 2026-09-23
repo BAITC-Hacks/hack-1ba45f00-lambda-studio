@@ -78,3 +78,21 @@ def test_routes_brief_and_ask_disabled(monkeypatch):
     r = c.post("/api/ask", json={"question": "кто главный?"})
     assert r.status_code == 503 and r.json()["error"] == "ai_disabled"
     assert c.get("/api/health").json()["ai_enabled"] is False
+
+
+def test_brief_recheck_after_manual_edit(tmp_path):
+    """--check: ручная правка с выдуманным числом ловится, флаг правки ставится только при изменении текста."""
+    import shutil
+    from mycelium import config
+    from mycelium.ai.brief import recheck
+    (tmp_path / "web").mkdir()
+    for name in ("facts.json", "brief.md", "brief_check.json"):
+        shutil.copy(config.OUT_DIR / name, tmp_path / name)
+    shutil.copy(config.OUT_DIR / "web" / "graph.json", tmp_path / "web" / "graph.json")
+    same = recheck(tmp_path)
+    assert same["verified"] and not same["edited_by_human"]
+    md = tmp_path / "brief.md"
+    md.write_text(md.read_text(encoding="utf-8") + "\nКурьеров в ядре 36.\n", encoding="utf-8")
+    edited = recheck(tmp_path)
+    assert edited["edited_by_human"] and not edited["verified"]
+    assert any("36" in i and "курьер" in i for i in edited["issues"])
