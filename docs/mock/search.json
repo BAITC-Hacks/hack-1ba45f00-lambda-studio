@@ -1,0 +1,17 @@
+[
+ {
+  "id": "100000008603629100",
+  "role": "coordinator",
+  "priority": 1.0
+ },
+ {
+  "id": "100000000437046100",
+  "role": "coordinator",
+  "priority": 0.999
+ },
+ {
+  "id": "100000008477350100",
+  "role": "coordinator",
+  "priority": 0.997
+ }
+]

@@ -1,0 +1,48 @@
+# ── Python ───────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.ipynb_checkpoints/
+
+# Виртуальные окружения
+.venv/
+venv/
+env/
+
+# Секреты (.env.example коммитим)
+.env
+.env.*
+!.env.example
+
+# ── Фронтенд (Next.js / Node) ────────────────────────────
+node_modules/
+.next/
+.turbo/
+.vercel/
+*.tsbuildinfo
+next-env.d.ts
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+# Промежуточный static export Next.js внутри папки фронта
+frontend/out/
+
+# ВАЖНО: НЕ игнорировать /out/ (выходы пайплайна) и /web/dist/ (собранный фронт) —
+# по правилам кейса оба коммитятся (CLAUDE.md §5, §17).
+
+# ── ОС и редакторы ───────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
