@@ -32,7 +32,7 @@ export default function FocusNetwork({ nodes, links, targets, selected, dead, on
     row.sort((a, b) => under(a) - under(b));
     row.forEach((n, i) => positions.set(n.id, { x: 90 + (i + .5) * 620 / row.length, y: 200 + step * 170 / (steps + 1) }));
   }
-  roots.forEach((n, i) => positions.set(n.id, { x: [400, 170, 630][i] ?? 400, y: i === 0 ? 475 : 455 }));
+  roots.forEach((n, i) => positions.set(n.id, { x: [400, 250, 550, 105, 695][i] ?? 400, y: i === 0 ? 475 : 455 }));   // главный — в центре
   const path = (edge: GraphLink) => { const a = positions.get(id(edge.source))!, b = positions.get(id(edge.target))!; const bend = Math.max(45, Math.abs(b.y - a.y) * .48); return `M ${a.x} ${a.y} C ${a.x} ${a.y + bend}, ${b.x} ${b.y - bend}, ${b.x} ${b.y}`; };
   return <div className="focus-art"><svg viewBox="0 0 800 610" role="img" aria-label="Избранные реальные пути от известных курьеров к трём приоритетным узлам">
     <defs>
@@ -51,7 +51,7 @@ export default function FocusNetwork({ nodes, links, targets, selected, dead, on
       const active = selected === id(edge.source) || selected === id(edge.target);
       return <g key={key} opacity={dim ? .12 : active ? 1 : .6}><path d={path(edge)} fill="none" stroke={targets.has(id(edge.target)) ? '#b0de62' : '#aed0b7'} strokeWidth={Math.min(3, .8 + Math.log10(Math.max(1, edge.sum_kzt)) / 4)} markerEnd="url(#flow-arrow)"/>{!dim && <circle r="2" fill="#efffd0"><animateMotion dur="7s" repeatCount="indefinite" path={path(edge)}/></circle>}</g>;
     })}
-    {nodes.map(node => { const p = positions.get(node.id); if (!p) return null; const root = targets.has(node.id), primary = roots[0]?.id === node.id; const r = root ? primary ? 47 : 31 : 12, dim = dead.has(node.id); return <g key={node.id} transform={`translate(${p.x},${p.y})`} className="network-node" role="button" tabIndex={0} aria-label={`Открыть GID ${node.id}`} onClick={() => onSelect(node)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(node); } }}>
+    {nodes.map(node => { const p = positions.get(node.id); if (!p) return null; const root = targets.has(node.id), primary = roots[0]?.id === node.id; const r = root ? primary ? 42 : roots.length > 3 ? 25 : 31 : 12, dim = dead.has(node.id); return <g key={node.id} transform={`translate(${p.x},${p.y})`} className="network-node" role="button" tabIndex={0} aria-label={`Открыть GID ${node.id}`} onClick={() => onSelect(node)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(node); } }}>
       <title>{`GID ${node.id} · колено ${node.depth} · приоритет ${(node.priority * 100).toFixed(1)}%`}</title>
       <circle r={root ? r + 12 : 22} fill="transparent"/>
       {node.is_seed && !root ? <g opacity={dim ? .25 : 1}><path d="M -2 0 L -2 15 L 2 15 L 2 0" fill="#909ba9"/><path d="M -11 0 A 11 12 0 0 1 11 0 Z" fill={capColor[node.role] ?? 'url(#seed-cap)'}/>{capColor[node.role] && <circle r="16" cy="-4" fill={capColor[node.role]} opacity=".18"/>}<text y="-22" className="seed-id">·{node.id.slice(-6)}</text></g> : <>
