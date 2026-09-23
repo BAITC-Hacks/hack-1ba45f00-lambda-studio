@@ -18,7 +18,29 @@
 > **Node.js не нужен.** Собранный интерфейс лежит в `web/dist/`, его раздаёт Python-сервер. Если папки
 > `web/dist/` нет, по адресу `/` открывается страница-заглушка, а API и Swagger (`/docs`) работают.
 
-Все команды — из корня репозитория.
+Все команды — из корня репозитория. Выберите **любой** вариант.
+
+### Вариант 1 — Docker (одна команда, не зависит от версии Python)
+
+Нужен Docker Desktop / OrbStack / любой Docker с Compose.
+
+```bash
+docker compose up --build
+```
+
+Откройте **http://localhost:8000**. Если порт занят: `PORT=8001 docker compose up --build` → http://localhost:8001
+(Windows PowerShell: `$env:PORT=8001; docker compose up --build`). Остановить — Ctrl+C.
+Без Compose: `docker build -t mycelium . && docker run -p 8000:8000 mycelium`.
+
+### Вариант 2 — скрипт в один клик (нужен Python ≥ 3.9)
+
+- **macOS / Linux:** `./run.sh` (или `./run.sh 8001`)
+- **Windows:** двойной клик по `run.bat` (или `run.bat 8001` в cmd)
+
+Скрипт сам создаёт `.venv`, ставит зависимости, считает выходы и запускает сервер; `run.sh` сам берёт
+следующий свободный порт, если 8000 занят.
+
+### Вариант 3 — вручную
 
 **macOS / Linux**
 

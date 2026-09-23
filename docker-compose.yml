@@ -1,0 +1,9 @@
+# docker compose up --build  →  http://localhost:8000   (ключ OpenAI необязателен: .env подхватится, если есть)
+services:
+  mycelium:
+    build: .
+    ports:
+      - "${PORT:-8000}:8000"
+    env_file:
+      - path: .env
+        required: false
