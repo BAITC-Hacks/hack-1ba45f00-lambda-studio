@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from typing import Optional
 
@@ -19,6 +20,14 @@ TEMPERATURE = 0.2
 MAX_RETRIES = 2
 PREVIEW_LEN = 160
 DEFAULT_BASE_URL = "https://api.openai.com/v1"
+
+
+# Вопросы о виновности модель не получает вовсе: ответ фиксированный и собирается из данных,
+# поэтому он всегда на языке гипотез и всегда проходит сверку (на сцене не загорится «не сверено»).
+GUILT_QUESTION = re.compile(r"преступ|винов|украл|кто\s+(?:тут\s+|здесь\s+)?главн|организатор|отмыва", re.I)
+GUILT_TOP_N = 3
+GUILT_INTRO = ("Система не устанавливает виновность — она показывает признаки ролей для проверки человеком. "
+               "В первую очередь рекомендуем проверить:")
 
 
 class AiDisabled(RuntimeError):
@@ -72,11 +81,33 @@ def _preview(result: dict) -> str:
     return text if len(text) <= PREVIEW_LEN else text[: PREVIEW_LEN - 1] + "…"
 
 
+def guilt_answer(question: str, ctx: Optional[tools.Context] = None) -> Optional[dict]:
+    """Фиксированный ответ на вопрос о виновности (без модели) или None, если вопрос не такой."""
+    if not GUILT_QUESTION.search(question or ""):
+        return None
+    ctx = ctx or tools.get_context()
+    t0 = time.perf_counter()
+    result = tools.call(ctx, "top_nodes", {"limit": GUILT_TOP_N})
+    ms = int((time.perf_counter() - t0) * 1000)
+    lines = [GUILT_INTRO]
+    for n in result["nodes"]:
+        c = ctx.cards[n["id"]]
+        lines.append(f"{n['rank']}. [gid:{n['id']}] — {c['role_label']}: {c['evidence']}")
+    answer = "\n".join(lines)
+    check = verify(answer, [result, [ctx.cards[n["id"]] for n in result["nodes"]]], set(ctx.G.nodes))
+    return {"answer": answer, "verified": check["verified"], "issues": check["issues"], "gids": check["gids"],
+            "tool_calls": [{"name": "top_nodes", "args": {"limit": GUILT_TOP_N}, "ms": ms,
+                            "result_preview": _preview(result)}]}
+
+
 def ask(question: str, ctx: Optional[tools.Context] = None) -> dict:
     """Форма ответа POST /api/ask: {answer, verified, issues, gids, tool_calls}."""
     question = (question or "").strip()
     if not question:
         raise ValueError("пустой вопрос")
+    fixed = guilt_answer(question, ctx)
+    if fixed is not None:
+        return fixed
     client, model = client_and_model()
     ctx = ctx or tools.get_context()
     messages = [{"role": "system", "content": prompts.SYSTEM}, {"role": "user", "content": question}]

@@ -25,6 +25,7 @@ NUMBER = re.compile(
 KNOWN_CONSTANTS = {0, 1, 2, 3, 4, 5, 20, 50, 81, 100, 2026, config.MIN_TX_KZT,
                    config.EXPECTED_COUNTS["nodes"], config.EXPECTED_COUNTS["edges"]} | {
     v for v in config.ROLE_THRESHOLDS.values() if float(v).is_integer()}
+SAFE_PHRASES = ["не устанавливает виновность"]
 EXTRA_FORBIDDEN_STEMS = ["преступн", "винов", "украл", "организатор", "отмыва"]
 
 
@@ -38,7 +39,10 @@ SUBJECTS = {
     "terminal": r"конечн\w*\s+получател\w*|терминал\w*",
     "peripheral": r"перифери\w*",
 }
-SUBJECT_NAMES = {"courier": "курьеров"} | {r: f"«{config.ROLE_LABELS[r]}»" for r in config.ROLES}
+# Одно кольцо (ед. ч.): «ядро-кольцо из 85», «кольцом из 309», «в ядре-кольце 21 узел». Множественное
+# «во всех кольцах — 309» — другое число (все узлы во всех кольцах) и сюда не попадает.
+RING_ONE = r"(?:ядр\w*-)?кольц(?:о|ом|е|у)(?![а-яё])"
+SUBJECT_NAMES = {"courier": "курьеров", "ring": "узлов в одном кольце"} | {r: f"«{config.ROLE_LABELS[r]}»" for r in config.ROLES}
 _NUM = r"(\d{1,3}(?:[ \u00a0\u202f]\d{3})+|\d+)"
 _PREP = r"(?:\s+(?:в|во|у|из|на|среди)\s+(?!кластер|колен|шаг)[а-яё-]+)?"   # «в кластере 3» — номер, не счётчик   # «курьеров в ядре 36», «координаторов в кластере 3»
 _ADJ = r"(?:[а-яё]+(?:ых|их|ые|ие)\s+)?"                  # «5 известных курьеров»
@@ -46,13 +50,17 @@ _ADJ = r"(?:[а-яё]+(?:ых|их|ые|ие)\s+)?"                  # «5 из�
 _NOT_UNIT = r"(?![\d,.]*\s*(?:плат|получ|млн|тыс|%|₸|дн|пер|узл|клиент|связ|кластер|курьер|колен|раз))"
 COURIER_KEYS = {"n_seeds_couriers", "n_seeds", "n_seed", "n_couriers", "seed_reach", "seed_reach_couriers",
                 "n_seed_payers", "n_direct", "n_upstream_seeds"}
+RING_KEYS = {"core_size", "size"}          # network.core.size, meta.network.core_size
 COURIER_LISTS = {"couriers", "direct_couriers", "upstream_seeds"}
 _ROLE_BY_NAME = {**{r: r for r in config.ROLES}, **{v: k for k, v in config.ROLE_LABELS.items()}}
 
 
 def subject_mentions(text: str) -> list[tuple[str, float, str]]:
-    """[(субъект, число, фрагмент)]: «6 координаторов», «курьеров: 11», «Транзит — 228»."""
+    """[(субъект, число, фрагмент)]: «6 координаторов», «курьеров: 11», «Транзит — 228», «кольцом из 309»."""
     out = []
+    for m in re.finditer(rf"{RING_ONE}(?:\s+узл\w*)?\s*[:—–-]?\s*(?:из\s+)?{_NUM}(?![\d,.]\d)"
+                         rf"(?!\s*(?:млн|тыс|%|₸))", text, re.I):
+        out.append(("ring", float(re.sub(r"\s", "", m.group(1))), m.group(0)))
     for subj, pat in SUBJECTS.items():
         for m in re.finditer(rf"(?<![\d,.]){_NUM}\s+{_ADJ}(?:{pat})", text, re.I):
             out.append((subj, float(re.sub(r"\s", "", m.group(1))), m.group(0)))
@@ -63,7 +71,7 @@ def subject_mentions(text: str) -> list[tuple[str, float, str]]:
 
 def collect_subject_numbers(obj, out: dict | None = None, key: str = "") -> dict:
     """Какие числа результаты инструментов называют про курьеров и про каждую роль."""
-    out = {s: set() for s in SUBJECTS} if out is None else out
+    out = {s: set() for s in list(SUBJECTS) + ["ring"]} if out is None else out
     if isinstance(obj, bool):
         return out
     if isinstance(obj, (int, float)):
@@ -71,6 +79,8 @@ def collect_subject_numbers(obj, out: dict | None = None, key: str = "") -> dict
             out["courier"].add(float(obj))
         if key in _ROLE_BY_NAME:
             out[_ROLE_BY_NAME[key]].add(float(obj))
+        if key in RING_KEYS:
+            out["ring"].add(float(obj))
     elif isinstance(obj, str):
         for subj, v, _ in subject_mentions(obj):
             out[subj].add(v)
@@ -119,6 +129,16 @@ def collect_numbers(obj, out: set | None = None) -> set:
     return out
 
 
+def _strings(obj) -> list[str]:
+    if isinstance(obj, str):
+        return [obj]
+    if isinstance(obj, dict):
+        return [s for v in obj.values() for s in _strings(v)]
+    if isinstance(obj, (list, tuple)):
+        return [s for v in obj for s in _strings(v)]
+    return []
+
+
 def collect_gids(obj, out: set | None = None) -> set:
     out = set() if out is None else out
     if isinstance(obj, str):
@@ -164,7 +184,12 @@ def verify(text: str, seen_results: list, graph_gids: set) -> dict:
     tagged = GID_TAG.findall(text)
     bare = [g for g in BARE_GID.findall(GID_TAG.sub(" ", text))]
     gids = list(dict.fromkeys(tagged + bare))
-    for g in gids:
+    # номера, которые инструмент отверг («узел 123 не найден в графе»): упоминать их в отказе можно
+    rejected = {float(x) for x in re.findall(r"узел (\d+) не найден", " ".join(_strings(seen_results)))}
+    for g in list(gids):
+        if int(g) not in graph_gids and float(int(g)) in rejected:
+            gids.remove(g)                                  # не делаем ссылку на несуществующий узел
+            continue
         if int(g) not in graph_gids:
             issues.append(f"узла {g} нет в графе")
         elif g not in seen_gids:
@@ -177,12 +202,16 @@ def verify(text: str, seen_results: list, graph_gids: set) -> dict:
         percent = unit.startswith("%") or unit.startswith("процент")
         if not unit and value in KNOWN_CONSTANTS:
             continue
+        if re.match(r"\s*(?:цифр|знак|символ)", plain[m.end():]):      # «gid из 18 цифр»
+            continue
         if not _matches(value, tol, seen_numbers, percent):
             issues.append(f"число «{m.group(0).strip()}» не найдено в результатах запросов")
 
     issues += subject_issues(plain, seen_results)
 
     low = text.lower()
+    for phrase in SAFE_PHRASES:                      # отказ устанавливать виновность — не обвинение
+        low = low.replace(phrase, " ")
     hits = [w for w in sorted(set(config.FORBIDDEN_WORDS) | set(EXTRA_FORBIDDEN_STEMS)) if w in low]
     for w in hits:
         if not any(o != w and w.startswith(o) for o in hits):     # «преступник» уже покрыт «преступн»

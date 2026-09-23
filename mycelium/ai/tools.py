@@ -115,13 +115,20 @@ def common_collectors(ctx: Context, gids: list, limit: int = DEFAULT_LIMIT) -> d
     src = [_gid(ctx, x) for x in gids][:50]
     need = len(src) // 2 + 1
     count: dict = {}
+    hops: dict = {}
     for s in src:
-        for v in nx.descendants(ctx.G, s):
-            count[v] = count.get(v, 0) + 1
+        for v, d in nx.single_source_shortest_path_length(ctx.G, s).items():
+            if v != s:
+                count[v] = count.get(v, 0) + 1
+                hops[v] = hops.get(v, 0) + d
+    direct = {v: sum(1 for s in src if ctx.G.has_edge(s, v)) for v in count}
     hits = [v for v, k in count.items() if k >= need and v not in src]
-    hits.sort(key=lambda v: (-count[v], -(ctx.cards[str(v)]["priority"] or 0), v))
+    # Из-за колец деньги доходят до сотен узлов. Сборщик — ближайший общий получатель: сначала охват,
+    # затем сколько источников платят напрямую, затем среднее число шагов, и только потом приоритет.
+    hits.sort(key=lambda v: (-count[v], -direct[v], hops[v] / count[v], -(ctx.cards[str(v)]["priority"] or 0), v))
     return {"sources": [str(s) for s in src], "min_covered": need, "total_found": len(hits),
             "collectors": [{**_brief_node(ctx, v), "covered": count[v], "of": len(src),
+                            "pay_directly": direct[v], "avg_hops": round(hops[v] / count[v], 1),
                             "in_deg": ctx.cards[str(v)]["metrics"]["in_deg"],
                             "in_kzt": ctx.cards[str(v)]["metrics"]["in_kzt"]} for v in hits[:_limit(limit)]]}
 
@@ -181,6 +188,8 @@ def blocking_effect(ctx: Context, gids: list) -> dict:
     ids = [g for g in ids if g not in ctx.seeds]
     r = resilience.evaluate(ctx.G, ctx.df, ids)
     r["removed"] = [str(g) for g in r["removed"]]
+    r["cut_kzt"] = round(r["baseline"]["reach_kzt"] - r["after"]["reach_kzt"], 2)          # сколько ₸ отсечено
+    r["cut_deep_kzt"] = round(r["baseline"]["deep_kzt"] - r["after"]["deep_kzt"], 2)
     if seeds:
         r["skipped_couriers"] = seeds
         r["note"] = "курьеры исключены: они уже известны, их блокировка обнуляет граф по построению"

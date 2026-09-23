@@ -41,6 +41,9 @@ def ask(body: AskRequest):
         return _error(400, "empty_question", "Задайте вопрос")
     if len(q) > MAX_QUESTION_LEN:
         return _error(400, "too_long", f"Вопрос длиннее {MAX_QUESTION_LEN} символов")
+    fixed = analyst.guilt_answer(q)            # вопросы о виновности — без модели, работают и без ключа
+    if fixed is not None:
+        return fixed
     if not analyst.enabled():
         return _error(503, "ai_disabled", "ИИ-аналитик выключен: нет OPENAI_API_KEY и OPENAI_MODEL. "
                                           "Сохранённая справка — GET /api/brief")
