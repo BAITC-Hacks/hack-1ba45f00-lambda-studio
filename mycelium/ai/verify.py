@@ -175,6 +175,12 @@ def _matches(value: float, tol: float, seen: Iterable[float], percent: bool) -> 
     return False
 
 
+def normalize_thousands(text: str) -> str:
+    """«3,848,436 ₸» / «1,165,000» (английские разделители тысяч) → «3848436»; «3,2 млн» не трогаем."""
+    text = re.sub(r"(?<![\d,.])\d{1,3}(?:,\d{3}){2,}(?![\d,])", lambda m: m.group(0).replace(",", ""), text)
+    return re.sub(r"(?<![\d,.])\d{1,3},\d{3}(?=\s*₸)", lambda m: m.group(0).replace(",", ""), text)
+
+
 def verify(text: str, seen_results: list, graph_gids: set) -> dict:
     """{"verified": bool, "issues": [..], "gids": [..]} — проверка ответа по результатам инструментов."""
     issues: list[str] = []
@@ -195,7 +201,7 @@ def verify(text: str, seen_results: list, graph_gids: set) -> dict:
         elif g not in seen_gids:
             issues.append(f"узел {g} не встречался в результатах запросов к графу")
 
-    plain = BARE_GID.sub(" ", GID_TAG.sub(" ", text))
+    plain = normalize_thousands(BARE_GID.sub(" ", GID_TAG.sub(" ", text)))
     for m in NUMBER.finditer(plain):
         (value, tol), = parse_numbers(m.group(0))
         unit = (m.group(3) or "").lower()

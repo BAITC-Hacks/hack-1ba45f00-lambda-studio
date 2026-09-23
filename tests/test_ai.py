@@ -113,3 +113,12 @@ def test_guilt_questions_answered_without_model(q, monkeypatch):
     top = json.loads((__import__("mycelium").config.OUT_DIR / "web" / "top_check.json").read_text("utf-8"))
     assert body["gids"] == [t["id"] for t in top[:3]]
     assert not diff_shape(mock("ask_response"), body)
+
+
+def test_verify_accepts_english_thousands(ctx):
+    """«3,848,436 ₸» — то же число, что 3848436 в результатах; не дробь 3,848."""
+    g = ctx.top_check[0]["id"]
+    r = tools.call(ctx, "get_node", {"gid": g})
+    v = int(r["metrics"]["in_kzt"])
+    text = f"У [gid:{g}] входящий оборот {v:,} ₸.".replace(",", ",")
+    assert verify(text, [r], set(ctx.G.nodes))["verified"], text
