@@ -72,7 +72,7 @@ def _brief_node(ctx: Context, g: int) -> dict:
 def network_summary(ctx: Context) -> dict:
     """Общая картина: счётчики, роли, оборот, компоненты, ядро-кольцо, ограничения данных."""
     n = ctx.facts["network"]
-    return {**n, "limitations": ctx.facts["limitations"]}
+    return {**n, "glossary": ctx.facts["glossary"], "limitations": ctx.facts["limitations"]}
 
 
 def get_node(ctx: Context, gid) -> dict:
@@ -166,8 +166,10 @@ def get_cluster(ctx: Context, cluster_id) -> dict:
     if cl is None:
         raise ToolError(f"кластера {cid} нет")
     members = [c for c in ctx.cards.values() if c["cluster"] == cid]
-    roles = pd.Series([m["role"] for m in members]).value_counts().to_dict()
-    return {**cl, "roles": roles}
+    counts = pd.Series([m["role"] for m in members]).value_counts()
+    roles = {config.ROLE_LABELS[r]: int(counts[r]) for r in config.ROLES if r in counts}
+    out = {k: v for k, v in cl.items() if k != "n_seed"}
+    return {**out, "n_couriers": cl["n_seed"], "roles": roles}
 
 
 def blocking_effect(ctx: Context, gids: list) -> dict:
