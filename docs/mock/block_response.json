@@ -1,0 +1,18 @@
+{
+ "baseline": {
+  "reach_kzt": 365890012,
+  "deep_kzt": 244811506,
+  "n_components": 16
+ },
+ "after": {
+  "reach_kzt": 331000000,
+  "deep_kzt": 210000000,
+  "n_components": 23
+ },
+ "drop_reach_pct": 9.5,
+ "drop_deep_pct": 14.2,
+ "removed": [
+  "100000008603629100",
+  "100000000437046100"
+ ]
+}

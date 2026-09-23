@@ -1,0 +1,123 @@
+{
+ "id": "100000008603629100",
+ "role": "coordinator",
+ "role_label": "Координатор",
+ "role_score": 1.0,
+ "stability_text": "роль устойчива в 50 из 50 вариантов порогов",
+ "priority": 1.0,
+ "rank": 1,
+ "cluster": 3,
+ "is_seed": false,
+ "depth": 2,
+ "truncated": false,
+ "in_core": true,
+ "metrics": {
+  "in_deg": 19,
+  "out_deg": 61,
+  "in_kzt": 1817300.0,
+  "out_kzt": 4986156.0,
+  "pass_through": 2.74,
+  "hold_median_days": 0.0,
+  "seed_reach": 7,
+  "cut_kzt": 8208866.0,
+  "sync_max_payers": 4
+ },
+ "evidence": "Кандидат в координаторы: собирает от 19 плательщиков (1,8 млн ₸) и раздаёт 61 получателям (5,0 млн ₸)",
+ "rule_trace": [
+  {
+   "role": "coordinator",
+   "matched": true,
+   "checks": [
+    {
+     "label": "плательщиков ≥ 8",
+     "value": 19,
+     "ok": true
+    },
+    {
+     "label": "получателей ≥ 20",
+     "value": 61,
+     "ok": true
+    }
+   ]
+  },
+  {
+   "role": "distributor",
+   "matched": false,
+   "skipped": true,
+   "checks": []
+  }
+ ],
+ "upstream_seeds": [
+  "100000003016635100",
+  "100000004269433100",
+  "100000004723755100",
+  "100000005498992100",
+  "100000006866783100",
+  "100000007982728100",
+  "100000008418835100"
+ ],
+ "payers": [
+  {
+   "id": "100000003880331100",
+   "sum_kzt": 598000.0,
+   "n_tx": 6,
+   "role": "transit"
+  },
+  {
+   "id": "100000005910114100",
+   "sum_kzt": 232624.0,
+   "n_tx": 8,
+   "role": "transit"
+  },
+  {
+   "id": "100000008304139100",
+   "sum_kzt": 159000.0,
+   "n_tx": 4,
+   "role": "distributor"
+  },
+  {
+   "id": "100000007639767100",
+   "sum_kzt": 98250.0,
+   "n_tx": 4,
+   "role": "peripheral"
+  },
+  {
+   "id": "100000003968044100",
+   "sum_kzt": 96000.0,
+   "n_tx": 2,
+   "role": "peripheral"
+  }
+ ],
+ "recipients": [
+  {
+   "id": "100000001857829100",
+   "sum_kzt": 408000.0,
+   "n_tx": 2,
+   "role": "consolidator"
+  },
+  {
+   "id": "100000000764836100",
+   "sum_kzt": 251716.0,
+   "n_tx": 1,
+   "role": "peripheral"
+  },
+  {
+   "id": "100000008279405100",
+   "sum_kzt": 234738.0,
+   "n_tx": 2,
+   "role": "terminal"
+  },
+  {
+   "id": "100000008077552100",
+   "sum_kzt": 214000.0,
+   "n_tx": 1,
+   "role": "terminal"
+  },
+  {
+   "id": "100000003366471100",
+   "sum_kzt": 193524.0,
+   "n_tx": 3,
+   "role": "peripheral"
+  }
+ ]
+}
