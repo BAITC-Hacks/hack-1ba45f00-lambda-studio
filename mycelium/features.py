@@ -88,8 +88,13 @@ def add_cluster_features(df: pd.DataFrame, G: nx.DiGraph, cluster_id: pd.Series)
 
 
 def pct_rank(values: pd.Series, mask: pd.Series) -> pd.Series:
-    """Перцентильный ранг 0–1 среди узлов mask (узлы с рёбрами); остальным 0."""
+    """Перцентильный ранг 0–1 среди узлов mask (узлы с рёбрами); остальным 0.
+
+    Нулевое значение даёт 0, а не средний ранг среди нулей: у ~1 500 узлов cut_kzt = 0 и
+    betweenness = 0, и без этого «ничего» получало бы ранг ≈ 0.34.
+    """
     r = values[mask].rank(pct=True, method="average")
+    r = r.where(values[mask] > 0, 0.0)
     return r.reindex(values.index).fillna(0.0).astype(float)
 
 
