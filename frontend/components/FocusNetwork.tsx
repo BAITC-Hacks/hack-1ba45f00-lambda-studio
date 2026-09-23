@@ -12,8 +12,24 @@ export default function FocusNetwork({ nodes, links, targets, selected, dead, on
   const middle = nodes.filter(n => !targets.has(n.id) && !n.is_seed).sort((a, b) => (a.fy ?? 0) - (b.fy ?? 0));
   const positions = new Map<string, { x: number; y: number }>();
   seeds.forEach((n, i) => positions.set(n.id, { x: 65 + (i + .5) * 670 / Math.max(seeds.length, 1), y: 110 }));
-  const rows = Math.max(1, Math.ceil(middle.length / 5));
-  middle.forEach((n, i) => { const row = Math.floor(i / 5), count = Math.min(5, middle.length - row * 5); positions.set(n.id, { x: 90 + (i % 5 + .5) * 620 / count, y: 245 + row * 110 / rows }); });
+  // Ряд = шаг от курьера по цепочке: курьеры наверху (шаг 0), главные узлы внизу; стрелки идут только вниз.
+  const inShown = new Set(nodes.map(n => n.id));
+  const edges = links.filter(e => inShown.has(id(e.source)) && inShown.has(id(e.target)));
+  const level = new Map<string, number>(seeds.map(n => [n.id, 0]));
+  for (let pass = 0; pass < 6; pass++) edges.forEach(e => {        // самый длинный путь от курьера (до 6 шагов)
+    const s = id(e.source), t = id(e.target), ls = level.get(s);
+    if (ls !== undefined && !targets.has(t) && (level.get(t) ?? -1) < ls + 1) level.set(t, Math.min(ls + 1, 6));
+  });
+  const steps = Math.max(1, ...middle.map(n => level.get(n.id) ?? 1));
+  for (let step = 1; step <= steps; step++) {
+    const row = middle.filter(n => (level.get(n.id) ?? 1) === step);
+    const under = (n: GraphNode) => {                                // под своими плательщиками
+      const xs = edges.filter(e => id(e.target) === n.id).map(e => positions.get(id(e.source))?.x).filter((x): x is number => x !== undefined);
+      return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 400;
+    };
+    row.sort((a, b) => under(a) - under(b));
+    row.forEach((n, i) => positions.set(n.id, { x: 90 + (i + .5) * 620 / row.length, y: 200 + step * 170 / (steps + 1) }));
+  }
   roots.forEach((n, i) => positions.set(n.id, { x: [400, 170, 630][i] ?? 400, y: i === 0 ? 475 : 455 }));
   const path = (edge: GraphLink) => { const a = positions.get(id(edge.source))!, b = positions.get(id(edge.target))!; const bend = Math.max(45, Math.abs(b.y - a.y) * .48); return `M ${a.x} ${a.y} C ${a.x} ${a.y + bend}, ${b.x} ${b.y - bend}, ${b.x} ${b.y}`; };
   return <div className="focus-art"><svg viewBox="0 0 800 610" role="img" aria-label="Избранные реальные пути от известных курьеров к трём приоритетным узлам">
