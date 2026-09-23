@@ -202,7 +202,7 @@ def main(argv: Optional[list] = None) -> int:
     ap.add_argument("--data", type=Path, default=config.DATA_DIR)
     a = ap.parse_args(argv)
     app = create_app(a.out, a.data)
-    print(f"Грибница: http://localhost:{a.port}  (API: /docs)")
+    print(f"Грибница: http://localhost:{a.port}  (API: /docs)", flush=True)
     uvicorn.run(app, host=a.host, port=a.port, log_level="warning")
     return 0
 
