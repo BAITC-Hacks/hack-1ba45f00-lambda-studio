@@ -262,10 +262,9 @@ sync_max_payers, in_cycle, inflow_outside_sample`.
 evidence), `clusters`, `resilience` (сводка по стратегиям), `blocking_plan`, `next_requests`,
 `limitations` (список ограничений данных). gid — строками.
 
-### 6.8 Интерфейсы модулей (граница между участниками A и B)
-Пайплайн (A) вызывает модули B только через эти функции. **B первым коммитом (≤ 15 минут) создаёт свои
-файлы с этими сигнатурами и простыми заглушками** (данные нужной формы), чтобы пайплайн A сразу шёл от
-начала до конца; потом B заменяет тела. A файлы B не создаёт и не правит. Эталоны расчётов — в `explore.py`.
+### 6.8 Интерфейсы модулей
+Границы модулей внутри пакета: пайплайн вызывает их только через эти функции. Эталоны расчётов — в
+`explore.py`.
 
 ```python
 # temporal.py
@@ -614,36 +613,38 @@ SEED_MULTIPLIER = 0.5   # курьеры уже известны полиции;
 ## 17. Порядок работы
 
 ### Команда и зоны ответственности
-Файлы разделены так, чтобы агенты разных участников не правили одно и то же.
+**С 15:40 весь бэкенд ведёт A.** Зоны B больше нет: модули `temporal, clusters, resilience, next_requests,
+sankey, layout, validate, serve`, `tests/` и `docs/architecture.md` пишет A. Интерфейсы §6.8 остаются
+границами модулей внутри пакета.
 
 | Кто | Инструмент | Файлы |
 |---|---|---|
-| **A — Даниил: ядро + ИИ** | Claude Code (читает этот файл) | `config, load, features, roles, evidence, priority, export, pipeline, explain`, `ai/*` (включая `ai/routes.py` — роуты `/api/brief` и `/api/ask`), контракты §6, `README.md`, `ROLES.md`, `DISCLOSURE.md` |
-| **B — сеть + API** | Codex (читает `AGENTS.md` → этот файл) | `temporal, clusters, resilience, next_requests, sankey, layout, validate, serve.py` (кроме ИИ-роутов — их подключает через `app.include_router`), `tests/`, `docs/architecture.md` |
-| **C — фронтенд** | свой стек, этот файл не читает | только `web/`; работает по `docs/FRONTEND.md` и `docs/mock/` |
+| **A — Даниил: весь бэкенд + ИИ** | Claude Code (читает этот файл) | всё в `mycelium/` (включая `ai/*`), `tests/`, контракты §6, `README.md`, `ROLES.md`, `DISCLOSURE.md`, `docs/architecture.md` |
+| **C — фронтенд** | свой стек, этот файл не читает | только `web/` (сборка — в `web/dist/`); работает по `docs/FRONTEND.md` и `docs/mock/` |
 
 Общие файлы (`CLAUDE.md`, `AGENTS.md`, `docs/FRONTEND.md`, `docs/mock/`, `requirements.txt`) меняет только A,
 с объявлением в чате команды.
 
-### План (соревновательная часть 13:00–18:00)
-| Время | A — ядро | B — сеть + API | C — фронт |
-|---|---|---|---|
-| 13:00–13:30 | разложить файлы (§5), `config.py`, `load.py`, пайплайн насквозь на заглушках B | **первый коммит — заглушки по §6.8**; затем `python -m mycelium.explore`, §3.1, перенести `temporal` из `explore.py` | читает `FRONTEND.md`, поднимает проект, рисует `graph.json` из моков |
-| 13:30–14:30 | features + roles + evidence → **три CSV**; экспорт `graph/meta/cards/top_check` | clusters, layout; `serve.py`: health, meta, graph, node, ego, search, top | схема, поиск, карточка на моках |
-| **14:30** | | **живой API на реальных данных** | переключение с моков на API |
-| 14:30–15:30 | priority, top, explain, остальные экспорты | resilience (`cut_kzt`, `evaluate`, `greedy_plan`, `strategies`), `/api/block`, `/api/resilience`, `validate` | «Почему эта роль», списки, связи |
-| **15:30** | **все 5 must-have работают end-to-end** | | |
-| 15:30–16:30 | ИИ-аналитик: tools, analyst, verify, brief, `ai/routes.py` | sankey, next_requests, `tests/test_api.py` (форма = моки) | вкладки Лестница денег, Блокировка, ИИ-аналитик |
-| 16:30–17:15 | справка по делу (закоммитить), README, ROLES.md, DISCLOSURE | **запуск из чистого клона на другом ноутбуке**, `docs/architecture.md` | **17:00 — сборка в `web/dist/` закоммичена** |
-| 17:15–17:45 | все: тренировка «3 случайных gid за минуту», финальные выходы в `out/` | | |
-| **17:45** | **финальный коммит** | | |
+### Порядок работы A (после каждого шага — коммит)
+1. `out/web/*.json` строго в форме `docs/mock`: сначала `graph` (с раскладкой x, y), `meta`, `cards`,
+   `top_check`; `serve.py` с эндпоинтами health, meta, graph, node, ego, search, top. Статика `web/dist`
+   через `StaticFiles(html=True)` после всех `/api` роутов, CORS открыт. → сообщить фронту.
+2. `explain.py`.
+3. Блокировка: `evaluate`, `greedy_plan`, `strategies`, `/api/resilience`, `POST /api/block`, `top_block.json`.
+4. Гипотезы кластеров, `sankey`, `next_requests` и их эндпоинты.
+5. `validate.py` и `tests/test_api.py` (форма ответов = моки).
+6. **Все пять must-have работают end-to-end** — остановиться и доложить.
+7. ИИ-аналитик, затем README, ROLES.md, DISCLOSURE.
+8. 17:00 — сборка фронта в `web/dist/`; 17:15–17:45 — проверка из чистого клона, финальные `out/`;
+   **17:45 — финальный коммит.**
 
-Правило: до 15:30 никаких отличительных фич, пока не работают все пять must-have.
+Правило: никаких отличительных фич, пока не работают все пять must-have.
 
 ### Git
-- Все в `main`, маленькие коммиты, `git pull --rebase` перед `push`. Правишь только свои файлы.
-- Каждый час к **:50** — коммит от **каждого из троих**. Сообщение: `feat(roles): …`, `fix(api): …`, `docs: …`.
-- С 15:00 перед каждым коммитом бэкенда — `python -m mycelium.pipeline && python -m mycelium.validate`.
+- A работает в ветке `daniil`, C — в `feature/frontend`. **К :50 каждого часа — слияние в `main`**
+  (`git pull --rebase` перед `push`). Правишь только свои файлы.
+- Каждый час к **:50** — коммит от каждого участника. Сообщение: `feat(roles): …`, `fix(api): …`, `docs: …`.
+- Перед каждым коммитом бэкенда — `python -m mycelium.pipeline && python -m mycelium.validate`.
 - `.env` не коммитить. `out/` и `web/dist/` коммитить.
 
 ---
