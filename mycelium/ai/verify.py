@@ -3,7 +3,10 @@
 1. Каждый [gid:N] существует в графе и встречался в результатах инструментов этого диалога.
 2. Каждое число из ответа («3,2 млн», «850 тыс.», «33,7 %», «19») совпадает с каким-то числом из
    результатов: крупные — с допуском 1 % или точностью округления, мелкие счётчики — точно.
-3. Нет запрещённых слов (язык гипотез).
+3. Точечно: число рядом со словом «курьер» — это 81 или число курьеров из результатов (кластер, узел);
+   число рядом с названием роли — счётчик именно этой роли (сеть, ядро, кластер, список из результатов).
+   Так ловится «курьеров 228», когда 228 — число транзитных узлов: такое число в фактах есть, но не про курьеров.
+4. Нет запрещённых слов (язык гипотез).
 """
 from __future__ import annotations
 
@@ -23,6 +26,77 @@ KNOWN_CONSTANTS = {0, 1, 2, 3, 4, 5, 20, 50, 81, 100, 2026, config.MIN_TX_KZT,
                    config.EXPECTED_COUNTS["nodes"], config.EXPECTED_COUNTS["edges"]} | {
     v for v in config.ROLE_THRESHOLDS.values() if float(v).is_integer()}
 EXTRA_FORBIDDEN_STEMS = ["преступн", "винов", "украл", "организатор", "отмыва"]
+
+
+# ── Точечная проверка: число рядом с «курьер» или названием роли ─────────────
+SUBJECTS = {
+    "courier": r"курьер\w*",
+    "coordinator": r"координатор\w*",
+    "consolidator": r"точ\w*\s+сбора|консолидатор\w*",
+    "distributor": r"распределител\w*",
+    "transit": r"транзит\w*",
+    "terminal": r"конечн\w*\s+получател\w*|терминал\w*",
+    "peripheral": r"перифери\w*",
+}
+SUBJECT_NAMES = {"courier": "курьеров"} | {r: f"«{config.ROLE_LABELS[r]}»" for r in config.ROLES}
+_NUM = r"(\d{1,3}(?:[ \u00a0\u202f]\d{3})+|\d+)"
+_ADJ = r"(?:[а-яё]+(?:ых|их|ые|ие)\s+)?"                  # «5 известных курьеров»
+# после числа не должна идти другая единица: «Точка сбора — 8 плательщиков» — это про плательщиков
+_NOT_UNIT = r"(?![\d,.]*\s*(?:плат|получ|млн|тыс|%|₸|дн|пер|узл|клиент|связ|кластер|курьер|колен|раз))"
+COURIER_KEYS = {"n_seeds_couriers", "n_seeds", "n_seed", "n_couriers", "seed_reach", "seed_reach_couriers",
+                "n_seed_payers", "n_direct", "n_upstream_seeds"}
+COURIER_LISTS = {"couriers", "direct_couriers", "upstream_seeds"}
+_ROLE_BY_NAME = {**{r: r for r in config.ROLES}, **{v: k for k, v in config.ROLE_LABELS.items()}}
+
+
+def subject_mentions(text: str) -> list[tuple[str, float, str]]:
+    """[(субъект, число, фрагмент)]: «6 координаторов», «курьеров: 11», «Транзит — 228»."""
+    out = []
+    for subj, pat in SUBJECTS.items():
+        for m in re.finditer(rf"(?<![\d,.]){_NUM}\s+{_ADJ}(?:{pat})", text, re.I):
+            out.append((subj, float(re.sub(r"\s", "", m.group(1))), m.group(0)))
+        for m in re.finditer(rf"(?:{pat})\s*[:—–-]?\s*«?\s*{_NUM}(?![\d,.]\d){_NOT_UNIT}", text, re.I):
+            out.append((subj, float(re.sub(r"\s", "", m.group(1))), m.group(0)))
+    return out
+
+
+def collect_subject_numbers(obj, out: dict | None = None, key: str = "") -> dict:
+    """Какие числа результаты инструментов называют про курьеров и про каждую роль."""
+    out = {s: set() for s in SUBJECTS} if out is None else out
+    if isinstance(obj, bool):
+        return out
+    if isinstance(obj, (int, float)):
+        if key in COURIER_KEYS:
+            out["courier"].add(float(obj))
+        if key in _ROLE_BY_NAME:
+            out[_ROLE_BY_NAME[key]].add(float(obj))
+    elif isinstance(obj, str):
+        for subj, v, _ in subject_mentions(obj):
+            out[subj].add(v)
+    elif isinstance(obj, dict):
+        for k, v in obj.items():
+            collect_subject_numbers(v, out, str(k))
+    elif isinstance(obj, (list, tuple)):
+        if key in COURIER_LISTS:
+            out["courier"].add(float(len(obj)))
+        roles = [_ROLE_BY_NAME.get(x.get("role") or x.get("role_label") or "") for x in obj if isinstance(x, dict)]
+        for r in set(filter(None, roles)):
+            out[r].add(float(roles.count(r)))              # «в списке 4 координатора»
+        for v in obj:
+            collect_subject_numbers(v, out, key)
+    return out
+
+
+def subject_issues(text: str, seen_results: list) -> list[str]:
+    allowed = collect_subject_numbers(seen_results)
+    allowed["courier"].add(float(config.EXPECTED_COUNTS["seeds"]))
+    issues = []
+    for subj, v, frag in subject_mentions(text):
+        if v not in allowed[subj]:
+            known = ", ".join(f"{x:g}" for x in sorted(allowed[subj])[:6]) or "нет"
+            issues.append(f"«{frag.strip()}»: {v:g} — не число {SUBJECT_NAMES[subj]} в результатах "
+                          f"(известны: {known})")
+    return issues
 
 
 def collect_numbers(obj, out: set | None = None) -> set:
@@ -104,6 +178,8 @@ def verify(text: str, seen_results: list, graph_gids: set) -> dict:
             continue
         if not _matches(value, tol, seen_numbers, percent):
             issues.append(f"число «{m.group(0).strip()}» не найдено в результатах запросов")
+
+    issues += subject_issues(plain, seen_results)
 
     low = text.lower()
     hits = [w for w in sorted(set(config.FORBIDDEN_WORDS) | set(EXTRA_FORBIDDEN_STEMS)) if w in low]

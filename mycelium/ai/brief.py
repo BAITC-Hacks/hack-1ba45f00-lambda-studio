@@ -33,12 +33,11 @@ def template_brief(f: dict) -> str:
     roles = n["roles"]
     core = n["core"]
     lines = ["**Что видим.**",
-             f"Граф переводов за июль: клиентов {n['n_nodes']}, связей {n['n_edges']}, курьеров {n['n_seeds']}, "
-             f"оборот {fmt_kzt(n['total_kzt'])}. По правилам с порогами выделены признаки ролей: координаторов — "
-             f"{roles['coordinator']}, точек сбора — {roles['consolidator']}, распределителей — "
-             f"{roles['distributor']}, транзитных узлов — {roles['transit']}, конечных получателей — "
-             f"{roles['terminal']}. Есть ядро-кольцо из {core['size']} узлов, где деньги могут вернуться к "
-             f"отправителю; в нём координаторов — {core['roles'].get('coordinator', 0)}.", ""]
+             f"Граф переводов за июль: клиентов {n['n_nodes']}, связей {n['n_edges']}, курьеров {n['n_seeds_couriers']}, "
+             f"оборот {fmt_kzt(n['total_kzt'])}. По правилам с порогами выделены признаки ролей: "
+             + ", ".join(f"«{lbl}» — {k}" for lbl, k in roles.items() if lbl != config.ROLE_LABELS["peripheral"])
+             + f". Есть ядро-кольцо из {core['size']} узлов, где деньги могут вернуться к отправителю; в нём "
+             f"координаторов — {core['roles'].get(config.ROLE_LABELS['coordinator'], 0)}.", ""]
 
     lines += ["**Кого проверить первым.**"]
     for t in f["top"][:5]:
@@ -49,7 +48,7 @@ def template_brief(f: dict) -> str:
     lines += ["**Группы.**"]
     groups = [c for c in f["clusters"] if c["cluster_id"] != config.NO_EDGES_CLUSTER]
     for c in sorted(groups, key=lambda c: -c["sum_kzt_internal"])[:3]:
-        lines.append(f"- Кластер {c['cluster_id']}: узлов {c['n_nodes']}, курьеров {c['n_seed']}, внутренний оборот "
+        lines.append(f"- Кластер {c['cluster_id']}: узлов {c['n_nodes']}, курьеров {c['n_couriers']}, внутренний оборот "
                      f"{fmt_kzt(c['sum_kzt_internal'])}. {_tag_gids(c['hypothesis'])}.")
     lines.append("")
 
